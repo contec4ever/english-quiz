@@ -67,6 +67,15 @@ input:focus{outline:none; border-color:var(--accent);}
 }
 .qword.en{direction:ltr; font-family:Georgia,'Times New Roman',serif;}
 .qword.d1{color:var(--green);} .qword.d2{color:#d97706;} .qword.d3{color:var(--red);}
+.speak-btn{
+  display:none; margin:22px auto 6px; width:112px; height:112px; border-radius:50%;
+  font-size:3.2rem; background:var(--chip); border:5px solid var(--accent);
+  align-items:center; justify-content:center; padding:0;
+}
+.speak-btn:active{transform:scale(.93);}
+.speak-btn.d1{border-color:var(--green); background:#f0fdf4;}
+.speak-btn.d2{border-color:#d97706; background:#fffbeb;}
+.speak-btn.d3{border-color:var(--red); background:#fef2f2;}
 .qmeta{display:flex; justify-content:space-between; color:var(--muted); font-size:.85rem;}
 #answerInput{font-size:1.3rem; text-align:center; padding:14px;}
 .skip-link{background:none; color:var(--muted); text-decoration:underline; font-size:.85rem; padding:8px; width:auto; margin:0 auto; display:block;}
@@ -135,6 +144,15 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
     </div>
 
     <div class="card">
+      <h2>אופן הצגת המילה</h2>
+      <div class="seg" id="modeSeg">
+        <button data-mode="read" class="on">👁 קריאה<br><small>המילה מוצגת על המסך</small></button>
+        <button data-mode="listen">🔊 שמיעה<br><small>המילה מושמעת ברמקול</small></button>
+      </div>
+      <div class="hint" id="modeHint" style="display:none"></div>
+    </div>
+
+    <div class="card">
       <h2>רמת קושי</h2>
       <div class="seg" id="diffSeg">
         <button data-diff="mix" class="on">🎲 מעורב</button>
@@ -175,6 +193,8 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       </div>
       <div class="progress-bar"><div id="qBar" style="width:0%"></div></div>
       <div class="qword" id="qWord"></div>
+      <button class="speak-btn" id="qSpeak" title="השמע שוב">🔊</button>
+      <div class="hint" id="qSpeakHint" style="display:none; text-align:center">לחץ להשמעה חוזרת</div>
       <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
       <button class="skip-link" id="btnSkip">דלג (ייחשב כטעות)</button>
@@ -266,7 +286,44 @@ for(const [,en,he] of WORDS){
 /* ---------- state ---------- */
 let dir = "en2he";
 let diff = "mix";
+let mode = "read";
 const selPages = new Set();
+
+/* ---------- text-to-speech ---------- */
+let voices = [];
+function loadVoices(){ try{ voices = speechSynthesis.getVoices() || []; }catch(e){} }
+if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+function pickVoice(langPrefix){
+  const c = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
+  return c.find(v => /google/i.test(v.name)) || c.find(v => v.default) || c[0] || null;
+}
+function speak(text, langPrefix, langFull){
+  if(!("speechSynthesis" in window)) return false;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = langFull;
+  const v = pickVoice(langPrefix);
+  if(v) u.voice = v;
+  u.rate = 0.85;
+  u.onerror = revealWord; // if the device can't speak it, show the word instead
+  speechSynthesis.speak(u);
+  return true;
+}
+function ttsWarning(){
+  if(!("speechSynthesis" in window)) return "⚠️ הדפדפן במכשיר זה לא תומך בהקראה — המילים יוצגו על המסך";
+  loadVoices();
+  const need = dir === "en2he" ? ["en", "אנגלית"] : ["he", "עברית"];
+  if(voices.length && !pickVoice(need[0]))
+    return `⚠️ לא נמצא קול ${need[1]} במכשיר זה — ייתכן שההקראה לא תפעל`;
+  return "";
+}
+function refreshModeHint(){
+  const h = $("modeHint");
+  if(mode !== "listen"){ h.style.display = "none"; return; }
+  const w = ttsWarning();
+  h.textContent = w || "המילה תושמע ברמקול — ודא שהשמע במכשיר פתוח";
+  h.style.display = "block";
+}
 let quiz = null; // {words:[[p,en,he]], idx, answers:[], dir, pages:[]}
 
 /* ---------- setup screen ---------- */
@@ -301,6 +358,13 @@ refreshPool();
 $("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("dirSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
   b.classList.add("on"); dir = b.dataset.dir;
+  refreshModeHint();
+});
+
+$("modeSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("modeSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); mode = b.dataset.mode;
+  refreshModeHint();
 });
 
 const DIFF_HINTS = {
@@ -322,6 +386,10 @@ $("btnStart").onclick = () => {
 };
 $("startCancel").onclick = () => $("startModal").classList.remove("show");
 $("startOk").onclick = async () => {
+  // unlock speech on iPhone: must start inside a user gesture
+  if(mode === "listen" && "speechSynthesis" in window){
+    try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
+  }
   const admin = loadAdmin();
   if(admin && await sha256($("startPw").value) === admin.pwHash){
     $("startModal").classList.remove("show");
@@ -362,7 +430,7 @@ function beginQuiz(){
     }
   }
   shuffle(picked); // ask the selected words in random order
-  quiz = { words: picked, idx: 0, answers: [], dir, diff, pages: [...selPages].sort((a,b)=>a-b) };
+  quiz = { words: picked, idx: 0, answers: [], dir, diff, mode: mode === "listen" && "speechSynthesis" in window ? "listen" : "read", pages: [...selPages].sort((a,b)=>a-b) };
   $("cancelBanner").style.display = "none";
   enterFullscreen();
   showScreen("scrQuiz");
@@ -394,6 +462,7 @@ function exitFullscreen(){
 }
 function cancelQuiz(msg){
   quiz = null;
+  if("speechSynthesis" in window) speechSynthesis.cancel();
   exitFullscreen();
   const b = $("cancelBanner");
   b.className = "";
@@ -418,16 +487,36 @@ document.addEventListener("fullscreenchange", onFsChange);
 document.addEventListener("webkitfullscreenchange", onFsChange);
 
 /* ---------- quiz screen ---------- */
+function speakCurrent(){
+  if(!quiz) return;
+  const q = quiz.words[quiz.idx];
+  if(quiz.dir === "en2he") speak(q[1], "en", "en-US");
+  else speak(q[2], "he", "he-IL");
+}
+function revealWord(){ // fallback when the device cannot speak
+  if(!quiz || quiz.mode !== "listen") return;
+  $("qWord").style.display = "";
+  $("qSpeakHint").textContent = "⚠️ ההקראה נכשלה — המילה מוצגת";
+}
+
 function renderQuestion(){
   const q = quiz.words[quiz.idx];
   const total = quiz.words.length;
+  const listen = quiz.mode === "listen";
   $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
-  $("qDirLabel").textContent = quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית";
+  $("qDirLabel").textContent = (listen ? "האזן ו" : "") + (quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
   $("qBar").style.width = (100*quiz.idx/total) + "%";
   const w = $("qWord");
   const dCls = " d" + (q[3] || 2); // color by difficulty: green / amber / red
   if(quiz.dir === "en2he"){ w.textContent = q[1]; w.className = "qword en" + dCls; }
   else { w.textContent = q[2]; w.className = "qword" + dCls; }
+  w.style.display = listen ? "none" : "";
+  const sp = $("qSpeak");
+  sp.style.display = listen ? "flex" : "none";
+  sp.className = "speak-btn d" + (q[3] || 2);
+  $("qSpeakHint").style.display = listen ? "block" : "none";
+  $("qSpeakHint").textContent = "לחץ להשמעה חוזרת";
+  if(listen) speakCurrent();
   const inp = $("answerInput");
   inp.value = "";
   if(quiz.dir === "en2he"){ inp.dir = "rtl"; inp.lang = "he"; inp.placeholder = "התשובה בעברית"; inp.autocapitalize = "off"; }
@@ -439,6 +528,7 @@ $("answerInput").addEventListener("input", () => { $("btnNext").disabled = !$("a
 $("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && $("answerInput").value.trim()) submitAnswer(); });
 $("btnNext").onclick = submitAnswer;
 $("btnSkip").onclick = () => submitAnswer(true);
+$("qSpeak").onclick = () => { speakCurrent(); $("answerInput").focus(); };
 $("btnQuit").onclick = () => $("quitModal").classList.add("show");
 $("quitNo").onclick = () => { $("quitModal").classList.remove("show"); $("answerInput").focus(); };
 $("quitYes").onclick = () => { $("quitModal").classList.remove("show"); cancelQuiz("המבחן בוטל — לא נשמר."); };
@@ -483,7 +573,7 @@ function finishQuiz(){
   const now = new Date();
   const rec = {
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
-    num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, pages: quiz.pages,
+    num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, mode: quiz.mode, pages: quiz.pages,
     total, correct, score,
     mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given })),
     emailed: false
@@ -491,6 +581,7 @@ function finishQuiz(){
   const h = loadHist(); h.push(rec); saveHist(h);
   renderResult(rec);
   quiz = null;
+  if("speechSynthesis" in window) speechSynthesis.cancel();
   exitFullscreen();
   showScreen("scrResult");
   // send the result to the admin email (fire-and-forget with retry on next load)
@@ -524,6 +615,7 @@ async function emailResult(rec){
         "תאריך ושעה": fmtDate(rec.ts),
         "כיוון": dirLabel(rec.dir),
         "רמת קושי": diffLabel(rec.diff) || "—",
+        "אופן הצגה": rec.mode === "listen" ? "🔊 שמיעה" : "👁 קריאה",
         "עמודים": rec.pages.join(", "),
         "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
         "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
@@ -556,6 +648,7 @@ function fmtDate(iso){
 function scoreClass(s){ return s >= 85 ? "good" : s >= 60 ? "mid" : "bad"; }
 function dirLabel(d){ return d === "en2he" ? "אנגלית ⬅ עברית" : "עברית ⬅ אנגלית"; }
 function diffLabel(d){ return {mix:"🎲 מעורב", easy:"🟢 קל", med:"🟡 בינוני", hard:"🔴 קשה"}[d] || ""; }
+function modeLabel(m){ return m === "listen" ? "🔊 שמיעה" : ""; }
 
 function mistakesTable(mist, d){
   if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
@@ -576,7 +669,8 @@ function renderResult(rec){
   el.textContent = rec.score;
   el.className = "num " + scoreClass(rec.score);
   $("resSub").textContent = `${rec.correct} נכונות מתוך ${rec.total} · ${dirLabel(rec.dir)}` +
-    (rec.diff ? ` · ${diffLabel(rec.diff)}` : "") + ` · עמודים ${rec.pages.join(", ")}`;
+    (rec.diff ? ` · ${diffLabel(rec.diff)}` : "") +
+    (rec.mode === "listen" ? ` · ${modeLabel(rec.mode)}` : "") + ` · עמודים ${rec.pages.join(", ")}`;
   $("resIdBox").innerHTML = `מבחן מספר <b>${rec.num}</b> · מזהה <b>${rec.id}</b><br>${fmtDate(rec.ts)}`;
   $("resMist").innerHTML = mistakesTable(rec.mistakes, rec.dir);
 }
@@ -592,7 +686,7 @@ function renderHistory(){
       <div class="hist-top">
         <div>
           <div><b>מבחן ${r.num}</b> <span class="hist-meta">· ${r.id}</span></div>
-          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)}${r.diff ? " · " + diffLabel(r.diff) : ""} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
+          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)}${r.diff ? " · " + diffLabel(r.diff) : ""}${r.mode === "listen" ? " · 🔊 שמיעה" : ""} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
         </div>
         <div class="hist-score ${scoreClass(r.score)}">${r.score}</div>
       </div>
