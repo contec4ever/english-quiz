@@ -68,15 +68,14 @@ input:focus{outline:none; border-color:var(--accent);}
 }
 .qword.en{direction:ltr; font-family:Georgia,'Times New Roman',serif;}
 .qword.d1{color:var(--green);} .qword.d2{color:#d97706;} .qword.d3{color:var(--red);}
-.speak-btn{
-  display:none; margin:22px auto 6px; width:112px; height:112px; border-radius:50%;
-  font-size:3.2rem; background:var(--chip); border:5px solid var(--accent);
-  align-items:center; justify-content:center; padding:0;
+.accent-btn{
+  background:var(--chip); border:3px solid var(--accent); border-radius:14px;
+  padding:10px 4px 7px; font-size:1.15rem; line-height:1.25; flex:1; max-width:88px;
 }
-.speak-btn:active{transform:scale(.93);}
-.speak-btn.d1{border-color:var(--green); background:#f0fdf4;}
-.speak-btn.d2{border-color:#d97706; background:#fffbeb;}
-.speak-btn.d3{border-color:var(--red); background:#fef2f2;}
+.accent-btn small{display:block; font-size:.66rem; color:var(--muted); margin-top:2px;}
+.accent-btn:active{transform:scale(.93);}
+.accent-btn.sel{background:#eff6ff; box-shadow:0 0 0 2px var(--accent) inset;}
+.accent-btn.d1{border-color:var(--green);} .accent-btn.d2{border-color:#d97706;} .accent-btn.d3{border-color:var(--red);}
 .qmeta{display:flex; justify-content:space-between; color:var(--muted); font-size:.85rem;}
 #answerInput{font-size:1.3rem; text-align:center; padding:14px;}
 .skip-link{background:none; color:var(--muted); text-decoration:underline; font-size:.85rem; padding:8px; width:auto; margin:0 auto; display:block;}
@@ -182,7 +181,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div id="histList"></div>
     </div>
 
-    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · כל מבחן שמסתיים נשלח אוטומטית למייל המנהל</div>
+    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · תוצאות נשמרות במכשיר זה בלבד</div>
   </div>
 
   <!-- ============ QUIZ ============ -->
@@ -194,10 +193,20 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       </div>
       <div class="progress-bar"><div id="qBar" style="width:0%"></div></div>
       <div class="qword" id="qWord"></div>
-      <button class="speak-btn" id="qSpeak" title="השמע שוב">🔊</button>
-      <div class="hint" id="qSpeakHint" style="display:none; text-align:center">לחץ להשמעה חוזרת</div>
+      <div id="speakPanel" style="display:none; margin:14px 0 6px">
+        <div class="hint" id="speakCaption" style="text-align:center; margin-bottom:10px"></div>
+        <div class="row" style="justify-content:center; gap:7px; flex-wrap:nowrap">
+          <button class="accent-btn" data-accent="en-US">🔊 🇺🇸<small>אמריקאי</small></button>
+          <button class="accent-btn" data-accent="en-GB">🔊 🇬🇧<small>בריטי</small></button>
+          <button class="accent-btn" data-accent="en-AU">🔊 🇦🇺<small>אוסטרלי</small></button>
+          <button class="accent-btn" data-accent="en-IE">🔊 🇮🇪<small>אירי</small></button>
+        </div>
+        <div class="seg" id="genderSeg" style="max-width:240px; margin:12px auto 0">
+          <button data-g="f">👩 אישה</button>
+          <button data-g="m">👨 גבר</button>
+        </div>
+      </div>
       <button class="btn-ghost" id="btnReveal" style="display:none; margin:10px auto 4px">👁 הצג מילה</button>
-      <button class="btn-ghost" id="btnSayEn" style="display:none; margin:2px auto 10px">🔊 איך אומרים את זה באנגלית?</button>
       <input type="text" id="spellInput" dir="ltr" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="display:none; margin-bottom:10px; font-size:1.3rem; text-align:center; padding:14px" placeholder="ספֶּלינג — איית את המילה באנגלית">
       <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
@@ -212,7 +221,6 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div class="score-big"><span class="num" id="resScore"></span></div>
       <div class="score-sub" id="resSub"></div>
       <div class="test-id-box" id="resIdBox"></div>
-      <div class="hint" id="resEmailStatus" style="text-align:center"></div>
     </div>
     <div class="card" id="resMistCard">
       <h2>❌ טעויות ומילים שהוצגו</h2>
@@ -279,31 +287,46 @@ let diff = "mix";
 let mode = "read";
 const selPages = new Set();
 
-/* ---------- text-to-speech ---------- */
+/* ---------- text-to-speech (English, selectable accent + voice) ---------- */
 let voices = [];
 function loadVoices(){ try{ voices = speechSynthesis.getVoices() || []; }catch(e){} }
 if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-function pickVoice(langPrefix){
-  const c = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
-  return c.find(v => /google/i.test(v.name)) || c.find(v => v.default) || c[0] || null;
+
+const VKEY = "engQuizVoice_v1";
+let voicePref = { accent: "en-US", gender: "f" };
+try{ voicePref = Object.assign(voicePref, JSON.parse(localStorage.getItem(VKEY)) || {}); }catch(e){}
+function saveVoicePref(){ localStorage.setItem(VKEY, JSON.stringify(voicePref)); }
+
+// voice gender is not exposed by the API — recognize common voice names
+const FEMALE_RE = /samantha|karen|moira|tessa|martha|serena|zira|hazel|susan|catherine|fiona|kate|stephanie|allison|ava|nicky|shelley|joelle|aria|libby|sonia|natasha|molly|female|woman/i;
+const MALE_RE = /daniel|aaron|fred|rishi|arthur|gordon|david|mark|george|james|oliver|thomas|ryan|guy|william|liam|noah|male(?!.*fe)|man\b/i;
+
+function pickVoice(accent, gender){
+  const a = accent.toLowerCase();
+  let c = voices.filter(v => v.lang && v.lang.toLowerCase().replace("_","-").startsWith(a));
+  if(!c.length) c = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("en"));
+  if(!c.length) return null;
+  const want = gender === "m" ? MALE_RE : FEMALE_RE;
+  const avoid = gender === "m" ? FEMALE_RE : MALE_RE;
+  return c.find(v => want.test(v.name)) || c.find(v => !avoid.test(v.name)) || c[0];
 }
-function speak(text, langPrefix, langFull){
+function speak(text){
   if(!("speechSynthesis" in window)) return false;
+  loadVoices();
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = langFull;
-  const v = pickVoice(langPrefix);
+  u.lang = voicePref.accent;
+  const v = pickVoice(voicePref.accent, voicePref.gender);
   if(v) u.voice = v;
-  u.rate = 0.85;
+  u.rate = 0.8;
   speechSynthesis.speak(u);
   return true;
 }
 function ttsWarning(){
   if(!("speechSynthesis" in window)) return "⚠️ הדפדפן במכשיר זה לא תומך בהקראה — המילים יוצגו על המסך";
   loadVoices();
-  const need = dir === "en2he" ? ["en", "אנגלית"] : ["he", "עברית"];
-  if(voices.length && !pickVoice(need[0]))
-    return `⚠️ לא נמצא קול ${need[1]} במכשיר זה — ייתכן שההקראה לא תפעל`;
+  if(voices.length && !voices.some(v => v.lang && v.lang.toLowerCase().startsWith("en")))
+    return "⚠️ לא נמצא קול אנגלית במכשיר זה — ייתכן שההקראה לא תפעל";
   return "";
 }
 function refreshModeHint(){
@@ -479,21 +502,34 @@ document.addEventListener("webkitfullscreenchange", onFsChange);
 /* ---------- quiz screen ---------- */
 function speakCurrent(){
   if(!quiz) return;
-  const q = quiz.words[quiz.idx];
-  if(quiz.dir === "en2he") speak(q[1], "en", "en-US");
-  else speak(q[2], "he", "he-IL");
+  speak(quiz.words[quiz.idx][1]); // always the English word
 }
 let revealedCurrent = false;
 let heardCurrent = false; // he2en: the English word was spoken as a hint
 function isDual(){ return quiz && quiz.mode === "listen" && quiz.dir === "en2he"; } // hear EN → spell EN + write HE
 
-$("btnSayEn").onclick = () => {
-  if(!quiz || quiz.dir !== "he2en") return;
-  heardCurrent = true;
-  speak(quiz.words[quiz.idx][1], "en", "en-US");
-  $("btnSayEn").textContent = "🔊 השמע שוב (יסומן בתוצאה)";
-  $("answerInput").focus();
-};
+/* speak panel: 4 accents + gender toggle. All spoken words are English (q[1]). */
+function markAccentSel(){
+  document.querySelectorAll(".accent-btn").forEach(b =>
+    b.classList.toggle("sel", b.dataset.accent === voicePref.accent));
+  $("genderSeg").querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.g === voicePref.gender));
+}
+markAccentSel();
+
+document.querySelectorAll(".accent-btn").forEach(b => b.onclick = () => {
+  if(!quiz) return;
+  voicePref.accent = b.dataset.accent; saveVoicePref(); markAccentSel();
+  if(quiz.dir === "he2en"){
+    heardCurrent = true;
+    $("speakCaption").textContent = "🔊 הושמעה באנגלית (יסומן בתוצאה)";
+  }
+  speakCurrent();
+  (isDual() && !$("spellInput").readOnly && !$("spellInput").value ? $("spellInput") : $("answerInput")).focus();
+});
+$("genderSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  voicePref.gender = b.dataset.g; saveVoicePref(); markAccentSel();
+});
 
 $("btnReveal").onclick = () => {
   if(!quiz || quiz.mode !== "listen") return;
@@ -518,9 +554,6 @@ function renderQuestion(){
   const listen = quiz.mode === "listen";
   revealedCurrent = false;
   heardCurrent = false;
-  const sayBtn = $("btnSayEn");
-  sayBtn.style.display = quiz.dir === "he2en" && !listen && "speechSynthesis" in window ? "block" : "none";
-  sayBtn.textContent = "🔊 איך אומרים את זה באנגלית?";
   $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
   $("qDirLabel").textContent = (listen ? "האזן ו" : "") +
     (isDual() ? "איית באנגלית + כתוב את הפירוש בעברית" : quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
@@ -530,11 +563,19 @@ function renderQuestion(){
   if(quiz.dir === "en2he"){ w.textContent = q[1]; w.className = "qword en" + dCls; }
   else { w.textContent = q[2]; w.className = "qword" + dCls; }
   w.style.display = listen ? "none" : "";
-  const sp = $("qSpeak");
-  sp.style.display = listen ? "flex" : "none";
-  sp.className = "speak-btn d" + (q[3] || 2);
-  $("qSpeakHint").style.display = listen ? "block" : "none";
-  $("qSpeakHint").textContent = "לחץ להשמעה חוזרת";
+  // speak panel: in listen mode (replay) and in he2en (the "how do you say it" hint)
+  const showPanel = ("speechSynthesis" in window) && (listen || quiz.dir === "he2en");
+  $("speakPanel").style.display = showPanel ? "block" : "none";
+  if(showPanel){
+    $("speakCaption").textContent = listen
+      ? "בחר רמקול להשמעה חוזרת — כל כפתור במבטא אחר"
+      : "🔊 איך אומרים את זה באנגלית? (השימוש יסומן בתוצאה)";
+    document.querySelectorAll(".accent-btn").forEach(b => {
+      b.classList.remove("d1","d2","d3");
+      b.classList.add("d" + (q[3] || 2));
+    });
+    markAccentSel();
+  }
   const rb = $("btnReveal");
   rb.style.display = listen ? "block" : "none";
   rb.disabled = false;
@@ -562,7 +603,6 @@ $("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && next
 $("spellInput").addEventListener("keydown", e => { if(e.key === "Enter") $("answerInput").focus(); });
 $("btnNext").onclick = submitAnswer;
 $("btnSkip").onclick = () => submitAnswer(true);
-$("qSpeak").onclick = () => { speakCurrent(); $("answerInput").focus(); };
 $("btnQuit").onclick = () => $("quitModal").classList.add("show");
 $("quitNo").onclick = () => { $("quitModal").classList.remove("show"); $("answerInput").focus(); };
 $("quitYes").onclick = () => { $("quitModal").classList.remove("show"); cancelQuiz("המבחן בוטל — לא נשמר."); };
@@ -618,8 +658,7 @@ function finishQuiz(){
       en: a.q[1], he: a.q[2], given: a.given,
       spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
       ok: a.ok, revealed: !!a.revealed, heard: !!a.heard
-    })),
-    emailed: false
+    }))
   };
   const h = loadHist(); h.push(rec); saveHist(h);
   renderResult(rec);
@@ -627,86 +666,7 @@ function finishQuiz(){
   if("speechSynthesis" in window) speechSynthesis.cancel();
   exitFullscreen();
   showScreen("scrResult");
-  // send the result to the admin email (fire-and-forget with retry on next load)
-  $("resEmailStatus").textContent = "📧 שולח את התוצאה למייל…";
-  emailResult(rec).then(ok => {
-    if(ok){
-      $("resEmailStatus").textContent = "📧 התוצאה נשלחה למייל";
-    } else if(rec.sentTo && rec.sentTo.length){
-      $("resEmailStatus").textContent = "📧 נשלח חלקית — ליתר הנמענים יישלח אוטומטית בפתיחה הבאה";
-    } else {
-      $("resEmailStatus").textContent = "⚠️ השליחה למייל נכשלה — תנוסה שוב אוטומטית בפתיחה הבאה";
-    }
-  });
 }
-
-/* ---------- email results to admin ---------- */
-// recipients: FormSubmit alias (preferred, hides the address) or a plain address.
-// to add/remove a recipient — edit this list.
-const MAIL_TO = [
-  "ff3ba52cd0b5cd4b875d96df9d8f2c13", // giora
-  "ronit@contec.co.il"                // ronit (will be swapped to an alias after she activates)
-];
-async function emailResult(rec){
-  const mist = rec.mistakes.map(m => {
-    let line = `${m.en} = ${m.he}`;
-    if(m.spell !== null && m.spell !== undefined){
-      line += `  |  איות: ${m.spell || "-"} ${m.spellOk ? "✓" : "✗"}  |  פירוש: ${m.given || "-"} ${m.meaningOk ? "✓" : "✗"}`;
-    } else if(m.ok){
-      line += `  |  נענתה נכון: ${m.given}`;
-    } else {
-      line += (m.given ? `  |  נכתב: ${m.given}` : "  |  דילוג");
-    }
-    if(m.revealed) line += "  |  👁 המילה הוצגה";
-    if(m.heard) line += "  |  🔊 הושמעה באנגלית";
-    return line;
-  });
-  const body = JSON.stringify({
-    _subject: `תוצאת מבחן ${rec.num} — ציון ${rec.score} (${rec.correct}/${rec.total})`,
-    _template: "box",
-    _captcha: "false",
-    "מזהה מבחן": rec.id,
-    "תאריך ושעה": fmtDate(rec.ts),
-    "כיוון": dirLabel(rec.dir),
-    "רמת קושי": diffLabel(rec.diff) || "—",
-    "אופן הצגה": rec.mode === "listen" ? "🔊 שמיעה" : "👁 קריאה",
-    "עמודים": rec.pages.join(", "),
-    "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
-    "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
-  });
-  // send only to recipients that have not received this result yet (no duplicates on retry)
-  rec.sentTo = rec.sentTo || [];
-  let allOk = true;
-  for(const to of MAIL_TO){
-    if(rec.sentTo.includes(to)) continue;
-    try{
-      const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(to), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body
-      });
-      const d = await resp.json().catch(() => ({}));
-      if(resp.ok && String(d.success) === "true") rec.sentTo.push(to);
-      else allOk = false;
-    }catch(e){ allOk = false; }
-  }
-  rec.emailed = allOk;
-  persistRec(rec);
-  return allOk;
-}
-function persistRec(rec){
-  const h = loadHist();
-  const i = h.findIndex(x => x.id === rec.id);
-  if(i >= 0){ h[i] = rec; saveHist(h); }
-}
-// retry queue: on every app load, resend results that never reached all recipients
-async function processEmailQueue(){
-  const pending = loadHist().filter(r => r.emailed === false);
-  for(const r of pending){
-    if(!await emailResult(r)) break; // service unreachable — try again next load
-  }
-}
-processEmailQueue();
 
 function fmtDate(iso){
   const d = new Date(iso);
