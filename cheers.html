@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סימולטור משפטי עידוד</title>
+<style>
+:root{ --bg:#f0f4f8; --card:#fff; --text:#1a2433; --muted:#64748b; --accent:#2563eb; --border:#e2e8f0; --chip:#eef2f7; }
+*{box-sizing:border-box;}
+body{ margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding-bottom:40px;}
+.wrap{max-width:640px; margin:0 auto; padding:16px;}
+h1{font-size:1.35rem; text-align:center; margin:12px 0 2px;}
+.sub{text-align:center; color:var(--muted); font-size:.9rem; margin-bottom:14px;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin-top:14px;}
+.seg{display:flex; background:var(--chip); border-radius:12px; padding:4px; gap:4px;}
+.seg button{flex:1; background:transparent; border:none; padding:10px; font-size:1rem; border-radius:9px; color:var(--muted); font-weight:600; cursor:pointer; font-family:inherit;}
+.seg button.on{background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(15,23,42,.15);}
+.hint{color:var(--muted); font-size:.85rem; text-align:center; margin-top:8px;}
+.warn{color:#dc2626; font-weight:600;}
+h2{font-size:1rem; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
+.band-tag{font-size:.78rem; font-weight:700; color:#fff; border-radius:999px; padding:3px 12px;}
+.cheer{
+  display:block; width:100%; text-align:right; background:var(--chip); border:none;
+  border-radius:10px; padding:11px 14px; margin-top:7px; font-size:.95rem; line-height:1.5;
+  cursor:pointer; font-family:inherit; color:var(--text);
+}
+.cheer:active{background:#dbeafe;}
+.cheer.playing{background:#dbeafe; outline:2px solid var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔊 סימולטור משפטי עידוד</h1>
+  <div class="sub">לחצו על משפט כדי לשמוע אותו · <a href="index.html">חזרה למבחן</a></div>
+
+  <div class="card">
+    <div class="seg" id="voiceSeg">
+      <button data-v="rand" class="on">🎲 רנדומלי</button>
+      <button data-v="f">👩 אישה</button>
+      <button data-v="m">👨 גבר</button>
+    </div>
+    <div class="hint" id="voiceInfo">בודק קולות עברית במכשיר…</div>
+  </div>
+
+  <div id="bands"></div>
+</div>
+
+<script src="cheers.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let mode = "rand";
+let voices = [];
+function loadVoices(){ try{ voices = speechSynthesis.getVoices() || []; }catch(e){} }
+
+const BAND_META = [
+  { min: 100, label: "ציון 100", color: "#16a34a" },
+  { min: 90,  label: "90–99",  color: "#22c55e" },
+  { min: 80,  label: "80–89",  color: "#84cc16" },
+  { min: 70,  label: "70–79",  color: "#eab308" },
+  { min: 60,  label: "60–69",  color: "#f59e0b" },
+  { min: 40,  label: "40–59",  color: "#f97316" },
+  { min: 0,   label: "0–39",   color: "#ef4444" }
+];
+
+function heVoices(){
+  loadVoices();
+  return voices.filter(v => {
+    const l = (v.lang || "").toLowerCase();
+    return l.startsWith("he") || l.startsWith("iw");
+  });
+}
+const HE_M = /asaf|אסף|guy|male(?!.*fe)/i;
+const HE_F = /carmit|כרמית|hila|הילה|female|עברית/i;
+
+function refreshInfo(extra){
+  const he = heVoices();
+  const el = $("voiceInfo");
+  if(!("speechSynthesis" in window)){ el.innerHTML = '<span class="warn">⚠️ הדפדפן לא תומך בהקראה</span>'; return; }
+  if(!he.length){ el.innerHTML = '<span class="warn">⚠️ אין קול עברית במכשיר הזה — המשפטים לא יושמעו</span>'; return; }
+  el.textContent = "קולות עברית במכשיר: " + he.map(v => v.name.replace(/\s*\(.*\)$/,"")).join(", ") + (extra ? " · " + extra : "");
+}
+
+function pickVoice(){
+  const he = heVoices();
+  if(!he.length) return null;
+  const g = mode === "rand" ? (Math.random() < 0.5 ? "m" : "f") : mode;
+  const males = he.filter(v => HE_M.test(v.name));
+  const females = he.filter(v => HE_F.test(v.name) && !HE_M.test(v.name));
+  const pool = g === "m" && males.length ? males : (g === "f" && females.length ? females : he);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function say(text, btn){
+  const v = pickVoice();
+  if(!v){ refreshInfo(); return; }
+  speechSynthesis.cancel();
+  document.querySelectorAll(".cheer.playing").forEach(b => b.classList.remove("playing"));
+  btn.classList.add("playing");
+  const clean = text.replace(/[^֐-׿a-zA-Z0-9\s.,!?'"־%:+=()-]/g, "").trim();
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = "he-IL"; u.voice = v; u.rate = 0.95;
+  u.onend = u.onerror = () => btn.classList.remove("playing");
+  speechSynthesis.speak(u);
+  const g = HE_M.test(v.name) ? "👨" : (HE_F.test(v.name) ? "👩" : "");
+  refreshInfo("מנגן עכשיו: " + v.name.replace(/\s*\(.*\)$/,"") + " " + g);
+}
+
+$("voiceSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("voiceSeg").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); mode = b.dataset.v;
+});
+
+const holder = $("bands");
+CHEERS.forEach((band, i) => {
+  const meta = BAND_META[i];
+  const card = document.createElement("div");
+  card.className = "card";
+  const h = document.createElement("h2");
+  h.innerHTML = `<span class="band-tag" style="background:${meta.color}">${meta.label}</span> ${band.msgs.length} משפטים`;
+  card.appendChild(h);
+  band.msgs.forEach(msg => {
+    const b = document.createElement("button");
+    b.className = "cheer"; b.textContent = msg;
+    b.onclick = () => say(msg, b);
+    card.appendChild(b);
+  });
+  holder.appendChild(card);
+});
+
+if("speechSynthesis" in window){
+  refreshInfo();
+  speechSynthesis.onvoiceschanged = () => refreshInfo();
+} else refreshInfo();
+</script>
+</body>
+</html>
