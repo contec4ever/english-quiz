@@ -134,6 +134,17 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
     </div>
 
     <div class="card">
+      <h2>רמת קושי</h2>
+      <div class="seg" id="diffSeg">
+        <button data-diff="mix" class="on">🎲 מעורב</button>
+        <button data-diff="easy">🟢 קל</button>
+        <button data-diff="med">🟡 בינוני</button>
+        <button data-diff="hard">🔴 קשה</button>
+      </div>
+      <div class="hint" id="diffHint">מעורב = בחירה אקראית מכל הרמות</div>
+    </div>
+
+    <div class="card">
       <h2>כמה מילים במבחן?</h2>
       <input type="number" id="numWords" min="1" inputmode="numeric" value="20">
       <div class="hint" id="numHint"></div>
@@ -253,6 +264,7 @@ for(const [,en,he] of WORDS){
 
 /* ---------- state ---------- */
 let dir = "en2he";
+let diff = "mix";
 const selPages = new Set();
 let quiz = null; // {words:[[p,en,he]], idx, answers:[], dir, pages:[]}
 
@@ -271,9 +283,16 @@ $("btnNoPages").onclick = () => { document.querySelectorAll(".pchip").forEach(c=
 
 function poolSize(){ return WORDS.filter(w => selPages.has(w[0])).length; }
 function refreshPool(){
-  const n = poolSize();
+  const pool = WORDS.filter(w => selPages.has(w[0]));
+  const n = pool.length;
   $("poolInfo").textContent = n ? `נבחרו ${selPages.size} עמודים · ${n} מילים` : "";
-  $("numHint").textContent = n ? `אפשר עד ${n} מילים מהעמודים שנבחרו` : "בחר קודם עמודים";
+  if(n){
+    const c = [0,0,0];
+    for(const w of pool) c[(w[3]||2)-1]++;
+    $("numHint").textContent = `אפשר עד ${n} מילים · 🟢 ${c[0]} קלות · 🟡 ${c[1]} בינוניות · 🔴 ${c[2]} קשות`;
+  } else {
+    $("numHint").textContent = "בחר קודם עמודים";
+  }
   $("btnStart").disabled = !n;
 }
 refreshPool();
@@ -281,6 +300,18 @@ refreshPool();
 $("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("dirSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
   b.classList.add("on"); dir = b.dataset.dir;
+});
+
+const DIFF_HINTS = {
+  mix: "מעורב = בחירה אקראית מכל הרמות",
+  easy: "קודם כל המילים הקלות, אחר כך בינוניות, ובסוף קשות",
+  med: "קודם כל המילים הבינוניות, אחר כך קלות, ובסוף קשות",
+  hard: "קודם כל המילים הקשות, אחר כך בינוניות, ובסוף קלות"
+};
+$("diffSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("diffSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); diff = b.dataset.diff;
+  $("diffHint").textContent = DIFF_HINTS[diff];
 });
 
 $("btnStart").onclick = () => {
@@ -300,6 +331,15 @@ $("startOk").onclick = async () => {
 };
 $("startPw").addEventListener("keydown", e => { if(e.key === "Enter") $("startOk").click(); });
 
+function shuffle(arr){
+  for(let i = arr.length-1; i > 0; i--){
+    const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+// difficulty priority: which levels fill the test first
+const DIFF_ORDER = { mix: null, easy: [1,2,3], med: [2,1,3], hard: [3,2,1] };
+
 function beginQuiz(){
   const pool = WORDS.filter(w => selPages.has(w[0]));
   if(!pool.length) return;
@@ -307,12 +347,21 @@ function beginQuiz(){
   if(isNaN(n) || n < 1) n = 1;
   if(n > pool.length) n = pool.length;
   $("numWords").value = n;
-  // shuffle (Fisher-Yates) and take n
-  const arr = pool.slice();
-  for(let i = arr.length-1; i > 0; i--){
-    const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];
+  let picked;
+  const order = DIFF_ORDER[diff];
+  if(!order){
+    picked = shuffle(pool.slice()).slice(0, n);
+  } else {
+    // fill from the chosen level first, then the next levels, random within each level
+    picked = [];
+    for(const lvl of order){
+      if(picked.length >= n) break;
+      const bucket = shuffle(pool.filter(w => (w[3]||2) === lvl));
+      picked.push(...bucket.slice(0, n - picked.length));
+    }
   }
-  quiz = { words: arr.slice(0,n), idx: 0, answers: [], dir, pages: [...selPages].sort((a,b)=>a-b) };
+  shuffle(picked); // ask the selected words in random order
+  quiz = { words: picked, idx: 0, answers: [], dir, diff, pages: [...selPages].sort((a,b)=>a-b) };
   $("cancelBanner").style.display = "none";
   enterFullscreen();
   showScreen("scrQuiz");
@@ -432,7 +481,7 @@ function finishQuiz(){
   const now = new Date();
   const rec = {
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
-    num, ts: now.toISOString(), dir: quiz.dir, pages: quiz.pages,
+    num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, pages: quiz.pages,
     total, correct, score,
     mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given })),
     emailed: false
@@ -472,6 +521,7 @@ async function emailResult(rec){
         "מזהה מבחן": rec.id,
         "תאריך ושעה": fmtDate(rec.ts),
         "כיוון": dirLabel(rec.dir),
+        "רמת קושי": diffLabel(rec.diff) || "—",
         "עמודים": rec.pages.join(", "),
         "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
         "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
@@ -503,6 +553,7 @@ function fmtDate(iso){
 }
 function scoreClass(s){ return s >= 85 ? "good" : s >= 60 ? "mid" : "bad"; }
 function dirLabel(d){ return d === "en2he" ? "אנגלית ⬅ עברית" : "עברית ⬅ אנגלית"; }
+function diffLabel(d){ return {mix:"🎲 מעורב", easy:"🟢 קל", med:"🟡 בינוני", hard:"🔴 קשה"}[d] || ""; }
 
 function mistakesTable(mist, d){
   if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
@@ -522,7 +573,8 @@ function renderResult(rec){
   const el = $("resScore");
   el.textContent = rec.score;
   el.className = "num " + scoreClass(rec.score);
-  $("resSub").textContent = `${rec.correct} נכונות מתוך ${rec.total} · ${dirLabel(rec.dir)} · עמודים ${rec.pages.join(", ")}`;
+  $("resSub").textContent = `${rec.correct} נכונות מתוך ${rec.total} · ${dirLabel(rec.dir)}` +
+    (rec.diff ? ` · ${diffLabel(rec.diff)}` : "") + ` · עמודים ${rec.pages.join(", ")}`;
   $("resIdBox").innerHTML = `מבחן מספר <b>${rec.num}</b> · מזהה <b>${rec.id}</b><br>${fmtDate(rec.ts)}`;
   $("resMist").innerHTML = mistakesTable(rec.mistakes, rec.dir);
 }
@@ -538,7 +590,7 @@ function renderHistory(){
       <div class="hist-top">
         <div>
           <div><b>מבחן ${r.num}</b> <span class="hist-meta">· ${r.id}</span></div>
-          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
+          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)}${r.diff ? " · " + diffLabel(r.diff) : ""} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
         </div>
         <div class="hist-score ${scoreClass(r.score)}">${r.score}</div>
       </div>
