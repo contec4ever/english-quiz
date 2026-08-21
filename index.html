@@ -766,7 +766,7 @@ function renderHistory(){
 
 /* ---------- admin: fixed password (same on every device) + email ---------- */
 // password hash = SHA-256; email stored base64-encoded to avoid spam scrapers
-const ADMIN_HASH = "7ab5a2679fe3e8a8c2d3a7c913543b28ab41561b75c6e412b7816a6cc119851c";
+const ADMIN_HASH = "026677b93b113b8a15e0778ad97bd9a06a03987c980e74cc1f590304711aa1ee";
 const ADMIN_EMAIL_B64 = "Z2lvcmFAY29udGVjLmNvLmls";
 function loadAdmin(){ return { pwHash: ADMIN_HASH, email: atob(ADMIN_EMAIL_B64) }; }
 
