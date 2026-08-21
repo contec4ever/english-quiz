@@ -641,8 +641,6 @@ function finishQuiz(){
 
 /* ---------- email results to admin ---------- */
 async function emailResult(rec){
-  const admin = loadAdmin();
-  if(!admin || !admin.email) return false;
   const mist = rec.mistakes.map(m => {
     let line = `${m.en} = ${m.he}`;
     if(m.spell !== null && m.spell !== undefined){
@@ -657,7 +655,8 @@ async function emailResult(rec){
     return line;
   });
   try{
-    const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(admin.email), {
+    // FormSubmit alias for the admin email (keeps the address out of the public source)
+    const resp = await fetch("https://formsubmit.co/ajax/ff3ba52cd0b5cd4b875d96df9d8f2c13", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
@@ -765,10 +764,9 @@ function renderHistory(){
 }
 
 /* ---------- admin: fixed password (same on every device) + email ---------- */
-// password hash = SHA-256; email stored base64-encoded to avoid spam scrapers
+// password hash = SHA-256; result emails go through a FormSubmit alias (address not in source)
 const ADMIN_HASH = "026677b93b113b8a15e0778ad97bd9a06a03987c980e74cc1f590304711aa1ee";
-const ADMIN_EMAIL_B64 = "Z2lvcmFAY29udGVjLmNvLmls";
-function loadAdmin(){ return { pwHash: ADMIN_HASH, email: atob(ADMIN_EMAIL_B64) }; }
+function loadAdmin(){ return { pwHash: ADMIN_HASH }; }
 
 /* admin reset */
 $("btnReset").onclick = () => {
