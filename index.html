@@ -205,6 +205,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
           <button data-g="f">👩 אישה</button>
           <button data-g="m">👨 גבר</button>
         </div>
+        <div class="hint" id="voiceInfo" style="text-align:center; margin-top:6px"></div>
       </div>
       <button class="btn-ghost" id="btnReveal" style="display:none; margin:10px auto 4px">👁 הצג מילה</button>
       <input type="text" id="spellInput" dir="ltr" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="display:none; margin-bottom:10px; font-size:1.3rem; text-align:center; padding:14px" placeholder="ספֶּלינג — איית את המילה באנגלית">
@@ -514,7 +515,30 @@ function markAccentSel(){
     b.classList.toggle("sel", b.dataset.accent === voicePref.accent));
   $("genderSeg").querySelectorAll("button").forEach(b =>
     b.classList.toggle("on", b.dataset.g === voicePref.gender));
+  updateVoiceInfo();
 }
+// show which actual voice will play, and warn when the device has no voice of the requested gender for this accent
+function updateVoiceInfo(){
+  const el = $("voiceInfo");
+  if(!("speechSynthesis" in window)){ el.textContent = ""; return; }
+  loadVoices();
+  const v = pickVoice(voicePref.accent, voicePref.gender);
+  if(!v){ el.textContent = ""; return; }
+  const g = FEMALE_RE.test(v.name) ? " 👩" : MALE_RE.test(v.name) ? " 👨" : "";
+  let txt = "🗣 קול: " + v.name.replace(/\s*\(.*\)$/, "") + g;
+  if(!(v.lang || "").toLowerCase().replace("_","-").startsWith(voicePref.accent.toLowerCase())){
+    txt += " · ⚠️ אין קול במבטא הזה במכשיר — מנגן קול אנגלית אחר";
+  } else {
+    const wantRe = voicePref.gender === "m" ? MALE_RE : FEMALE_RE;
+    if(!wantRe.test(v.name)){
+      txt += voicePref.gender === "m"
+        ? " · ⚠️ אין קול גבר במבטא הזה במכשיר"
+        : " · ⚠️ אין קול אישה במבטא הזה במכשיר";
+    }
+  }
+  el.textContent = txt;
+}
+if("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", () => { loadVoices(); updateVoiceInfo(); });
 markAccentSel();
 
 document.querySelectorAll(".accent-btn").forEach(b => b.onclick = () => {
