@@ -183,16 +183,54 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <button class="btn-ghost" id="pwCancel" style="flex:1">ביטול</button>
       <button class="btn-danger" id="pwOk" style="flex:1">אפס הכל</button>
     </div>
+    <button class="skip-link" id="btnForgot" style="margin-top:6px">שכחתי סיסמה</button>
+  </div>
+</div>
+
+<!-- first-run setup modal -->
+<div class="modal-bg" id="setupModal">
+  <div class="modal">
+    <h2>🔐 הגדרה ראשונית — סיסמת מנהל</h2>
+    <p class="hint">בפתיחה הראשונה במכשיר זה יש ליצור סיסמת מנהל. הסיסמה נדרשת רק לאיפוס היסטוריית המבחנים — לא לביצוע מבחן.</p>
+    <input type="password" id="suPw" placeholder="סיסמה חדשה (לפחות 4 תווים)">
+    <input type="password" id="suPw2" placeholder="אימות סיסמה" style="margin-top:8px">
+    <input type="email" id="suEmail" placeholder="אימייל לשחזור סיסמה" dir="ltr" style="margin-top:8px">
+    <div class="warn" id="suErr" style="display:none"></div>
+    <button class="btn-primary" id="suSave" style="margin-top:14px">שמור והתחל</button>
+  </div>
+</div>
+
+<!-- forgot password modal -->
+<div class="modal-bg" id="fpModal">
+  <div class="modal">
+    <h2>שחזור סיסמה</h2>
+    <div id="fpStep1">
+      <p class="hint">יישלח קוד אימות בן 6 ספרות לאימייל שהוגדר:<br><b id="fpEmailShow" class="ltr" style="display:inline-block"></b></p>
+      <p class="hint">💡 בפעם הראשונה בלבד: יגיע קודם מייל אישור משירות FormSubmit — יש ללחוץ בו על Activate ואז לשלוח קוד שוב.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn-ghost" id="fpCancel1" style="flex:1">ביטול</button>
+        <button class="btn-primary" id="fpSend" style="flex:1; width:auto; padding:12px">שלח קוד למייל</button>
+      </div>
+    </div>
+    <div id="fpStep2" style="display:none">
+      <p class="hint">הקוד נשלח למייל (בתוקף 15 דקות). לא רואים? בדוק בספאם.</p>
+      <input type="text" id="fpCode" placeholder="קוד בן 6 ספרות" inputmode="numeric" autocomplete="one-time-code" dir="ltr" style="text-align:center; letter-spacing:4px">
+      <input type="password" id="fpNewPw" placeholder="סיסמה חדשה (לפחות 4 תווים)" style="margin-top:8px">
+      <input type="password" id="fpNewPw2" placeholder="אימות סיסמה חדשה" style="margin-top:8px">
+      <div class="row" style="margin-top:14px">
+        <button class="btn-ghost" id="fpCancel2" style="flex:1">ביטול</button>
+        <button class="btn-primary" id="fpSet" style="flex:1; width:auto; padding:12px">עדכן סיסמה</button>
+      </div>
+    </div>
+    <div class="warn" id="fpErr" style="display:none"></div>
   </div>
 </div>
 
 <script src="words.js"></script>
 <script>
 "use strict";
-/* ===== admin password (SHA-256 hex of the password) ===== */
-const ADMIN_HASH = "79a62fc44060aa0918a011fa8a319bcd27ed83218bbec2d12e59983cf7ebbc59";
-
 const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1";
+const AKEY = "engQuizAdmin_v1", RKEY = "engQuizReset_v1";
 const $ = id => document.getElementById(id);
 
 /* ---------- data indexes: accept synonyms ---------- */
@@ -386,13 +424,36 @@ function renderHistory(){
   });
 }
 
-/* ---------- admin reset ---------- */
-$("btnReset").onclick = () => { $("pwInput").value = ""; $("pwErr").style.display = "none"; $("pwModal").classList.add("show"); $("pwInput").focus(); };
+/* ---------- admin account (password + recovery email) ---------- */
+function loadAdmin(){ try{ return JSON.parse(localStorage.getItem(AKEY)); }catch(e){ return null; } }
+function saveAdmin(a){ localStorage.setItem(AKEY, JSON.stringify(a)); }
+
+/* first-run setup */
+function needSetup(){ const a = loadAdmin(); return !(a && a.pwHash && a.email); }
+if(needSetup()) $("setupModal").classList.add("show");
+
+$("suSave").onclick = async () => {
+  const pw = $("suPw").value, pw2 = $("suPw2").value, email = $("suEmail").value.trim();
+  const err = $("suErr");
+  const fail = m => { err.textContent = m; err.style.display = "block"; };
+  if(pw.length < 4) return fail("הסיסמה חייבת להכיל לפחות 4 תווים");
+  if(pw !== pw2) return fail("הסיסמאות אינן זהות");
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("כתובת אימייל לא תקינה");
+  saveAdmin({ pwHash: await sha256(pw), email });
+  $("setupModal").classList.remove("show");
+};
+
+/* admin reset */
+$("btnReset").onclick = () => {
+  if(needSetup()){ $("setupModal").classList.add("show"); return; }
+  $("pwInput").value = ""; $("pwErr").style.display = "none";
+  $("pwModal").classList.add("show"); $("pwInput").focus();
+};
 $("pwCancel").onclick = () => $("pwModal").classList.remove("show");
 $("pwOk").onclick = async () => {
-  const pw = $("pwInput").value;
-  const hash = await sha256(pw);
-  if(hash === ADMIN_HASH){
+  const admin = loadAdmin();
+  const hash = await sha256($("pwInput").value);
+  if(admin && hash === admin.pwHash){
     localStorage.removeItem(HKEY); localStorage.removeItem(CKEY);
     $("pwModal").classList.remove("show");
     renderHistory();
@@ -401,6 +462,72 @@ $("pwOk").onclick = async () => {
   }
 };
 $("pwInput").addEventListener("keydown", e => { if(e.key === "Enter") $("pwOk").click(); });
+
+/* ---------- forgot password: 6-digit code to recovery email ---------- */
+$("btnForgot").onclick = () => {
+  $("pwModal").classList.remove("show");
+  const admin = loadAdmin();
+  $("fpEmailShow").textContent = admin ? admin.email : "";
+  $("fpErr").style.display = "none";
+  $("fpStep1").style.display = "block"; $("fpStep2").style.display = "none";
+  $("fpCode").value = ""; $("fpNewPw").value = ""; $("fpNewPw2").value = "";
+  $("fpModal").classList.add("show");
+};
+$("fpCancel1").onclick = $("fpCancel2").onclick = () => $("fpModal").classList.remove("show");
+
+function fpFail(m){ const e = $("fpErr"); e.textContent = m; e.style.display = "block"; }
+
+$("fpSend").onclick = async () => {
+  const admin = loadAdmin();
+  if(!admin) return fpFail("לא הוגדר חשבון מנהל במכשיר זה");
+  $("fpErr").style.display = "none";
+  $("fpSend").disabled = true; $("fpSend").textContent = "שולח…";
+  // generate 6-digit code, keep only its hash locally (15-minute expiry)
+  const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+  const code = String(100000 + (buf[0] % 900000));
+  localStorage.setItem(RKEY, JSON.stringify({ hash: await sha256(code), exp: Date.now() + 15*60*1000 }));
+  try{
+    const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(admin.email), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: "קוד איפוס סיסמה - מבחן מילים באנגלית",
+        _template: "box",
+        _captcha: "false",
+        "קוד האיפוס": code,
+        "הערה": "הקוד בתוקף ל-15 דקות. אם לא ביקשת איפוס - התעלם מהודעה זו."
+      })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if(resp.ok && String(data.success) === "true"){
+      $("fpStep1").style.display = "none"; $("fpStep2").style.display = "block";
+      $("fpCode").focus();
+    } else {
+      fpFail(data.message || "השליחה נכשלה — נסה שוב");
+    }
+  }catch(e){
+    fpFail("אין חיבור לאינטרנט או שהשירות אינו זמין");
+  }
+  $("fpSend").disabled = false; $("fpSend").textContent = "שלח קוד למייל";
+};
+
+$("fpSet").onclick = async () => {
+  $("fpErr").style.display = "none";
+  let rec = null; try{ rec = JSON.parse(localStorage.getItem(RKEY)); }catch(e){}
+  if(!rec) return fpFail("לא נשלח קוד — חזור ושלח קוד");
+  if(Date.now() > rec.exp) return fpFail("הקוד פג תוקף — שלח קוד חדש");
+  const codeHash = await sha256($("fpCode").value.trim());
+  if(codeHash !== rec.hash) return fpFail("קוד שגוי");
+  const pw = $("fpNewPw").value, pw2 = $("fpNewPw2").value;
+  if(pw.length < 4) return fpFail("הסיסמה חייבת להכיל לפחות 4 תווים");
+  if(pw !== pw2) return fpFail("הסיסמאות אינן זהות");
+  const admin = loadAdmin();
+  admin.pwHash = await sha256(pw);
+  saveAdmin(admin);
+  localStorage.removeItem(RKEY);
+  $("fpModal").classList.remove("show");
+  alert("✅ הסיסמה עודכנה בהצלחה");
+};
 
 async function sha256(str){
   if(crypto && crypto.subtle){
