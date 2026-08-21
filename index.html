@@ -248,20 +248,6 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
   </div>
 </div>
 
-<!-- start-quiz password modal -->
-<div class="modal-bg" id="startModal">
-  <div class="modal">
-    <h2>🔑 אישור התחלת מבחן</h2>
-    <p class="hint">להתחלת מבחן נדרשת סיסמת מנהל.</p>
-    <input type="password" id="startPw" placeholder="סיסמת מנהל">
-    <div class="warn" id="startErr" style="display:none">סיסמה שגויה</div>
-    <div class="row" style="margin-top:14px">
-      <button class="btn-ghost" id="startCancel" style="flex:1">ביטול</button>
-      <button class="btn-primary" id="startOk" style="flex:1; width:auto; padding:12px">התחל מבחן</button>
-    </div>
-  </div>
-</div>
-
 
 
 
@@ -397,24 +383,12 @@ $("diffSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
 
 $("btnStart").onclick = () => {
   if(!poolSize()) return;
-  $("startPw").value = ""; $("startErr").style.display = "none";
-  $("startModal").classList.add("show"); $("startPw").focus();
-};
-$("startCancel").onclick = () => $("startModal").classList.remove("show");
-$("startOk").onclick = async () => {
   // unlock speech on iPhone: must start inside a user gesture
   if(mode === "listen" && "speechSynthesis" in window){
     try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
   }
-  const admin = loadAdmin();
-  if(admin && await sha256($("startPw").value) === admin.pwHash){
-    $("startModal").classList.remove("show");
-    beginQuiz();
-  } else {
-    $("startErr").style.display = "block";
-  }
+  beginQuiz();
 };
-$("startPw").addEventListener("keydown", e => { if(e.key === "Enter") $("startOk").click(); });
 
 function shuffle(arr){
   for(let i = arr.length-1; i > 0; i--){
