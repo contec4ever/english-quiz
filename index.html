@@ -155,6 +155,10 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
         <button data-mode="listen">🔊 שמיעה<br><small>המילה מושמעת ברמקול (רק באנגלית ⬅ עברית)</small></button>
       </div>
       <div class="hint" id="modeHint" style="display:none"></div>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:.9rem; cursor:pointer">
+        <input type="checkbox" id="fxToggle" checked style="width:18px; height:18px">
+        🎉 אפקטים וקולות חגיגה בסוף המבחן
+      </label>
     </div>
 
     <div class="card">
@@ -269,6 +273,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 
 <script src="words.js"></script>
 <script src="cheers.js"></script>
+<script src="celebrate.js"></script>
 <script>
 "use strict";
 const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1";
@@ -415,10 +420,11 @@ $("diffSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
 
 $("btnStart").onclick = () => {
   if(!poolSize()) return;
-  // unlock speech on iPhone: must start inside a user gesture
+  // unlock audio on iPhone: both must start inside a user gesture
   if(mode === "listen" && "speechSynthesis" in window){
     try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
   }
+  if(fxOn()) celebrateResumeAudio();
   beginQuiz();
 };
 
@@ -698,8 +704,18 @@ function finishQuiz(){
   if("speechSynthesis" in window) speechSynthesis.cancel();
   exitFullscreen();
   showScreen("scrResult");
-  speakCheer($("resCheer").textContent); // say the encouragement out loud (random voice)
+  if(fxOn()) celebrate(rec.score);                 // confetti / balloons / sounds by score
+  speakCheer($("resCheer").textContent);           // say the encouragement out loud (random voice)
 }
+
+/* celebration effects toggle (persisted) */
+const FXKEY = "engQuizFx_v1";
+function fxOn(){ return localStorage.getItem(FXKEY) !== "0"; }
+$("fxToggle").checked = fxOn();
+$("fxToggle").onchange = () => {
+  localStorage.setItem(FXKEY, $("fxToggle").checked ? "1" : "0");
+  if($("fxToggle").checked) celebrateResumeAudio();
+};
 
 /* speak a Hebrew encouragement with a random male/female voice (skips quietly if no Hebrew voice) */
 function speakCheer(text){
@@ -772,7 +788,7 @@ function renderResult(rec){
   $("resIdBox").innerHTML = `מבחן מספר <b>${rec.num}</b> · מזהה <b>${rec.id}</b><br>${fmtDate(rec.ts)}`;
   $("resMist").innerHTML = mistakesTable(rec.mistakes, rec.dir);
 }
-$("btnAgain").onclick = () => { showScreen("scrSetup"); renderHistory(); };
+$("btnAgain").onclick = () => { stopCelebration(); showScreen("scrSetup"); renderHistory(); };
 
 /* ---------- history ---------- */
 function renderHistory(){

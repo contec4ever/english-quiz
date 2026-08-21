@@ -27,6 +27,18 @@ h2{font-size:1rem; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
 }
 .cheer:active{background:#dbeafe;}
 .cheer.playing{background:#dbeafe; outline:2px solid var(--accent);}
+.row-fx{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px;}
+.fx-btn{
+  background:var(--chip); border:2px solid var(--accent); border-radius:12px; padding:10px 8px;
+  font-size:1.05rem; font-weight:700; cursor:pointer; font-family:inherit; color:var(--text);
+}
+.fx-btn small{display:block; font-size:.7rem; font-weight:400; color:var(--muted); margin-top:4px; line-height:1.35;}
+.fx-btn:active{transform:scale(.96);}
+.fx-small{
+  flex:1; background:#fff; border:1px solid var(--border); border-radius:10px; padding:9px 6px;
+  font-size:.85rem; cursor:pointer; font-family:inherit; color:var(--text);
+}
+.fx-small:active{background:var(--chip);}
 </style>
 </head>
 <body>
@@ -41,12 +53,35 @@ h2{font-size:1rem; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
       <button data-v="m">👨 גבר</button>
     </div>
     <div class="hint" id="voiceInfo">בודק קולות עברית במכשיר…</div>
+    <label style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; font-size:.9rem; cursor:pointer">
+      <input type="checkbox" id="fxWithCheer" style="width:18px; height:18px">
+      🎉 להוסיף אפקטים גם בלחיצה על משפט
+    </label>
+  </div>
+
+  <div class="card">
+    <h2><span class="band-tag" style="background:#7c3aed">🎉 חגיגות</span> נסו את האפקטים לפי ציון</h2>
+    <div class="row-fx">
+      <button class="fx-btn" data-s="100">💯<small>קונפטי + בלונים מתפוצצים + תרועה + מחיאות כפיים</small></button>
+      <button class="fx-btn" data-s="95">🌟 95<small>קונפטי + בלונים + תרועה</small></button>
+      <button class="fx-btn" data-s="85">💪 85<small>קונפטי + בלונים + פעמון + כפיים</small></button>
+      <button class="fx-btn" data-s="75">👍 75<small>קונפטי קליל + בלונים</small></button>
+      <button class="fx-btn" data-s="65">📚 65<small>בלונים + פעמון</small></button>
+      <button class="fx-btn" data-s="30">❤️ 30<small>בלונים + צליל עידוד</small></button>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:10px">
+      <button class="fx-small" id="fxApplause">👏 מחיאות כפיים</button>
+      <button class="fx-small" id="fxPop">🎈 פיצוץ בלון</button>
+      <button class="fx-small" id="fxFanfare">🎺 תרועה</button>
+      <button class="fx-small" id="fxStop">⏹ עצור</button>
+    </div>
   </div>
 
   <div id="bands"></div>
 </div>
 
 <script src="cheers.js"></script>
+<script src="celebrate.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -107,6 +142,16 @@ function say(text, btn){
   refreshInfo("מנגן עכשיו: " + v.name.replace(/\s*\(.*\)$/,"") + " " + g);
 }
 
+/* celebration effect demos */
+document.querySelectorAll(".fx-btn").forEach(b => b.onclick = () => {
+  celebrateResumeAudio();
+  celebrate(parseInt(b.dataset.s, 10));
+});
+$("fxApplause").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.applause(2.2); };
+$("fxPop").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.pop(0); };
+$("fxFanfare").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.fanfare(); };
+$("fxStop").onclick = () => { stopCelebration(); speechSynthesis.cancel(); };
+
 $("voiceSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("voiceSeg").querySelectorAll("button").forEach(x => x.classList.remove("on"));
   b.classList.add("on"); mode = b.dataset.v;
@@ -123,7 +168,13 @@ CHEERS.forEach((band, i) => {
   band.msgs.forEach(msg => {
     const b = document.createElement("button");
     b.className = "cheer"; b.textContent = msg;
-    b.onclick = () => say(msg, b);
+    b.onclick = () => {
+      say(msg, b);
+      if($("fxWithCheer").checked){
+        celebrateResumeAudio();
+        celebrate(BAND_META[i].min === 0 ? 30 : BAND_META[i].min);
+      }
+    };
     card.appendChild(b);
   });
   holder.appendChild(card);
