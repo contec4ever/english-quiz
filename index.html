@@ -148,7 +148,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div id="histList"></div>
     </div>
 
-    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · תוצאות נשמרות במכשיר זה בלבד</div>
+    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · כל מבחן שמסתיים נשלח אוטומטית למייל המנהל</div>
   </div>
 
   <!-- ============ QUIZ ============ -->
@@ -173,6 +173,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div class="score-big"><span class="num" id="resScore"></span></div>
       <div class="score-sub" id="resSub"></div>
       <div class="test-id-box" id="resIdBox"></div>
+      <div class="hint" id="resEmailStatus" style="text-align:center"></div>
     </div>
     <div class="card" id="resMistCard">
       <h2>❌ מילים עם טעות</h2>
@@ -470,14 +471,67 @@ function finishQuiz(){
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
     num, ts: now.toISOString(), dir: quiz.dir, pages: quiz.pages,
     total, correct, score,
-    mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given }))
+    mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given })),
+    emailed: false
   };
   const h = loadHist(); h.push(rec); saveHist(h);
   renderResult(rec);
   quiz = null;
   exitFullscreen();
   showScreen("scrResult");
+  // send the result to the admin email (fire-and-forget with retry on next load)
+  $("resEmailStatus").textContent = "📧 שולח את התוצאה למייל…";
+  emailResult(rec).then(ok => {
+    if(ok){
+      markEmailed(rec.id);
+      $("resEmailStatus").textContent = "📧 התוצאה נשלחה למייל המנהל";
+    } else {
+      $("resEmailStatus").textContent = "⚠️ השליחה למייל נכשלה — תנוסה שוב אוטומטית בפתיחה הבאה";
+    }
+  });
 }
+
+/* ---------- email results to admin ---------- */
+async function emailResult(rec){
+  const admin = loadAdmin();
+  if(!admin || !admin.email) return false;
+  const mist = rec.mistakes.map(m =>
+    `${m.en} = ${m.he}` + (m.given ? `  |  נכתב: ${m.given}` : "  |  דילוג")
+  );
+  try{
+    const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(admin.email), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: `תוצאת מבחן ${rec.num} — ציון ${rec.score} (${rec.correct}/${rec.total})`,
+        _template: "box",
+        _captcha: "false",
+        "מזהה מבחן": rec.id,
+        "תאריך ושעה": fmtDate(rec.ts),
+        "כיוון": dirLabel(rec.dir),
+        "עמודים": rec.pages.join(", "),
+        "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
+        "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
+      })
+    });
+    const d = await resp.json().catch(() => ({}));
+    return resp.ok && String(d.success) === "true";
+  }catch(e){ return false; }
+}
+function markEmailed(id){
+  const h = loadHist();
+  const r = h.find(x => x.id === id);
+  if(r){ r.emailed = true; saveHist(h); }
+}
+// retry queue: on every app load, resend results that never reached the email
+async function processEmailQueue(){
+  const pending = loadHist().filter(r => r.emailed === false);
+  for(const r of pending){
+    if(await emailResult(r)) markEmailed(r.id);
+    else break; // service unreachable — try again next load
+  }
+}
+processEmailQueue();
 
 function fmtDate(iso){
   const d = new Date(iso);
