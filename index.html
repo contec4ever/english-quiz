@@ -500,9 +500,18 @@ function isDual(){ return quiz && quiz.mode === "listen" && quiz.dir === "en2he"
 $("btnReveal").onclick = () => {
   if(!quiz || quiz.mode !== "listen") return;
   revealedCurrent = true;
-  $("qWord").style.display = "";
+  if(isDual()){
+    // write the word into the English spelling field and lock it
+    const s = $("spellInput");
+    s.value = quiz.words[quiz.idx][1];
+    s.readOnly = true;
+    updateNextBtn();
+    $("answerInput").focus();
+  } else {
+    $("qWord").style.display = "";
+  }
   $("btnReveal").disabled = true;
-  $("btnReveal").textContent = "👁 המילה מוצגת (יסומן בתוצאה)";
+  $("btnReveal").textContent = "👁 המילה הוצגה (יסומן בתוצאה)";
 };
 
 function renderQuestion(){
@@ -531,6 +540,7 @@ function renderQuestion(){
   const sInp = $("spellInput");
   sInp.style.display = isDual() ? "block" : "none";
   sInp.value = "";
+  sInp.readOnly = false;
   if(listen) speakCurrent();
   const inp = $("answerInput");
   inp.value = "";
