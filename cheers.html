@@ -62,17 +62,20 @@ h2{font-size:1rem; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
   <div class="card">
     <h2><span class="band-tag" style="background:#7c3aed">🎉 חגיגות</span> נסו את האפקטים לפי ציון</h2>
     <div class="row-fx">
-      <button class="fx-btn" data-s="100">💯<small>קונפטי + בלונים מתפוצצים + תרועה + מחיאות כפיים</small></button>
-      <button class="fx-btn" data-s="95">🌟 95<small>קונפטי + בלונים + תרועה</small></button>
-      <button class="fx-btn" data-s="85">💪 85<small>קונפטי + בלונים + פעמון + כפיים</small></button>
-      <button class="fx-btn" data-s="75">👍 75<small>קונפטי קליל + בלונים</small></button>
-      <button class="fx-btn" data-s="65">📚 65<small>בלונים + פעמון</small></button>
-      <button class="fx-btn" data-s="30">❤️ 30<small>בלונים + צליל עידוד</small></button>
+      <button class="fx-btn" data-show="fireworks">🎆 זיקוקים<small>ציון 100 · רקטות ממריאות, פיצוצים וניצוצות + תרועה וכפיים</small></button>
+      <button class="fx-btn" data-show="confetti">🎊 סופת קונפטי<small>90–99 · גשם קונפטי וסרפנטינות + חצוצרת מסיבה</small></button>
+      <button class="fx-btn" data-show="balloons">🎈 מסיבת בלונים<small>80–89 · בלונים עולים ומתפוצצים + פעמון וכפיים</small></button>
+      <button class="fx-btn" data-show="stars">⭐ כוכבים נוצצים<small>70–79 · כוכבי זהב שנדלקים ומנצנצים + צליל קסם</small></button>
+      <button class="fx-btn" data-show="bubbles">🫧 בועות<small>60–69 · בועות סבון שעולות ומתפקעות + בליפים</small></button>
+      <button class="fx-btn" data-show="sunrise">🌅 זריחה רגועה<small>מתחת ל-60 · אור חמים ועלי כותרת + צליל עידוד רך</small></button>
     </div>
-    <div style="display:flex; gap:8px; margin-top:10px">
-      <button class="fx-small" id="fxApplause">👏 מחיאות כפיים</button>
-      <button class="fx-small" id="fxPop">🎈 פיצוץ בלון</button>
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+      <button class="fx-small" id="fxApplause">👏 כפיים</button>
+      <button class="fx-small" id="fxPop">🎈 פיצוץ</button>
       <button class="fx-small" id="fxFanfare">🎺 תרועה</button>
+      <button class="fx-small" id="fxBoom">💥 זיקוק</button>
+      <button class="fx-small" id="fxHorn">📯 חצוצרה</button>
+      <button class="fx-small" id="fxSparkle">✨ קסם</button>
       <button class="fx-small" id="fxStop">⏹ עצור</button>
     </div>
   </div>
@@ -145,11 +148,14 @@ function say(text, btn){
 /* celebration effect demos */
 document.querySelectorAll(".fx-btn").forEach(b => b.onclick = () => {
   celebrateResumeAudio();
-  celebrate(parseInt(b.dataset.s, 10));
+  celebrateShow(b.dataset.show);
 });
 $("fxApplause").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.applause(2.2); };
 $("fxPop").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.pop(0); };
 $("fxFanfare").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.fanfare(); };
+$("fxBoom").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.launch(0); CELEBRATE_SFX.boom(0.55); };
+$("fxHorn").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.partyHorn(0); };
+$("fxSparkle").onclick = () => { celebrateResumeAudio(); CELEBRATE_SFX.sparkle(0); };
 $("fxStop").onclick = () => { stopCelebration(); speechSynthesis.cancel(); };
 
 $("voiceSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
