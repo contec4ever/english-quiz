@@ -66,6 +66,7 @@ input:focus{outline:none; border-color:var(--accent);}
   text-align:center; font-size:2.2rem; font-weight:700; padding:26px 8px; word-break:break-word;
 }
 .qword.en{direction:ltr; font-family:Georgia,'Times New Roman',serif;}
+.qword.d1{color:var(--green);} .qword.d2{color:#d97706;} .qword.d3{color:var(--red);}
 .qmeta{display:flex; justify-content:space-between; color:var(--muted); font-size:.85rem;}
 #answerInput{font-size:1.3rem; text-align:center; padding:14px;}
 .skip-link{background:none; color:var(--muted); text-decoration:underline; font-size:.85rem; padding:8px; width:auto; margin:0 auto; display:block;}
@@ -424,8 +425,9 @@ function renderQuestion(){
   $("qDirLabel").textContent = quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית";
   $("qBar").style.width = (100*quiz.idx/total) + "%";
   const w = $("qWord");
-  if(quiz.dir === "en2he"){ w.textContent = q[1]; w.className = "qword en"; }
-  else { w.textContent = q[2]; w.className = "qword"; }
+  const dCls = " d" + (q[3] || 2); // color by difficulty: green / amber / red
+  if(quiz.dir === "en2he"){ w.textContent = q[1]; w.className = "qword en" + dCls; }
+  else { w.textContent = q[2]; w.className = "qword" + dCls; }
   const inp = $("answerInput");
   inp.value = "";
   if(quiz.dir === "en2he"){ inp.dir = "rtl"; inp.lang = "he"; inp.placeholder = "התשובה בעברית"; inp.autocapitalize = "off"; }
