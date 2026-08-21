@@ -46,6 +46,7 @@ button{
 .seg{display:flex; background:var(--chip); border-radius:12px; padding:4px; gap:4px;}
 .seg button{flex:1; background:transparent; padding:10px 6px; font-size:.95rem; border-radius:9px; color:var(--muted); font-weight:600;}
 .seg button.on{background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(15,23,42,.15);}
+.seg button:disabled{opacity:.35; cursor:default;}
 .pages-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:7px; margin-top:10px;}
 .pchip{
   background:var(--chip); border-radius:10px; text-align:center; padding:11px 0;
@@ -147,7 +148,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <h2>אופן הצגת המילה</h2>
       <div class="seg" id="modeSeg">
         <button data-mode="read" class="on">👁 קריאה<br><small>המילה מוצגת על המסך</small></button>
-        <button data-mode="listen">🔊 שמיעה<br><small>המילה מושמעת ברמקול</small></button>
+        <button data-mode="listen">🔊 שמיעה<br><small>המילה מושמעת ברמקול (רק באנגלית ⬅ עברית)</small></button>
       </div>
       <div class="hint" id="modeHint" style="display:none"></div>
     </div>
@@ -356,10 +357,23 @@ function refreshPool(){
 }
 refreshPool();
 
+// listening mode is only available for English → Hebrew
+function updateModeAvailability(){
+  const listenBtn = document.querySelector('#modeSeg button[data-mode="listen"]');
+  const allowed = dir === "en2he";
+  listenBtn.disabled = !allowed;
+  if(!allowed && mode === "listen"){
+    mode = "read";
+    $("modeSeg").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+    document.querySelector('#modeSeg button[data-mode="read"]').classList.add("on");
+  }
+  refreshModeHint();
+}
+
 $("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("dirSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
   b.classList.add("on"); dir = b.dataset.dir;
-  refreshModeHint();
+  updateModeAvailability();
 });
 
 $("modeSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
@@ -431,7 +445,7 @@ function beginQuiz(){
     }
   }
   shuffle(picked); // ask the selected words in random order
-  quiz = { words: picked, idx: 0, answers: [], dir, diff, mode: mode === "listen" && "speechSynthesis" in window ? "listen" : "read", pages: [...selPages].sort((a,b)=>a-b) };
+  quiz = { words: picked, idx: 0, answers: [], dir, diff, mode: mode === "listen" && dir === "en2he" && "speechSynthesis" in window ? "listen" : "read", pages: [...selPages].sort((a,b)=>a-b) };
   $("cancelBanner").style.display = "none";
   enterFullscreen();
   showScreen("scrQuiz");
