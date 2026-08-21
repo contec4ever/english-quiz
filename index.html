@@ -187,6 +187,21 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
   </div>
 </div>
 
+<!-- start-quiz password modal -->
+<div class="modal-bg" id="startModal">
+  <div class="modal">
+    <h2>🔑 אישור התחלת מבחן</h2>
+    <p class="hint">להתחלת מבחן נדרשת סיסמת מנהל.</p>
+    <input type="password" id="startPw" placeholder="סיסמת מנהל">
+    <div class="warn" id="startErr" style="display:none">סיסמה שגויה</div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn-ghost" id="startCancel" style="flex:1">ביטול</button>
+      <button class="btn-primary" id="startOk" style="flex:1; width:auto; padding:12px">התחל מבחן</button>
+    </div>
+    <button class="skip-link" id="startForgot" style="margin-top:6px">שכחתי סיסמה</button>
+  </div>
+</div>
+
 <!-- first-run setup modal -->
 <div class="modal-bg" id="setupModal">
   <div class="modal">
@@ -282,6 +297,25 @@ $("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
 });
 
 $("btnStart").onclick = () => {
+  if(!poolSize()) return;
+  if(needSetup()){ $("setupModal").classList.add("show"); return; }
+  $("startPw").value = ""; $("startErr").style.display = "none";
+  $("startModal").classList.add("show"); $("startPw").focus();
+};
+$("startCancel").onclick = () => $("startModal").classList.remove("show");
+$("startOk").onclick = async () => {
+  const admin = loadAdmin();
+  if(admin && await sha256($("startPw").value) === admin.pwHash){
+    $("startModal").classList.remove("show");
+    beginQuiz();
+  } else {
+    $("startErr").style.display = "block";
+  }
+};
+$("startPw").addEventListener("keydown", e => { if(e.key === "Enter") $("startOk").click(); });
+$("startForgot").onclick = () => { $("startModal").classList.remove("show"); openForgot(); };
+
+function beginQuiz(){
   const pool = WORDS.filter(w => selPages.has(w[0]));
   if(!pool.length) return;
   let n = parseInt($("numWords").value, 10);
@@ -464,15 +498,15 @@ $("pwOk").onclick = async () => {
 $("pwInput").addEventListener("keydown", e => { if(e.key === "Enter") $("pwOk").click(); });
 
 /* ---------- forgot password: 6-digit code to recovery email ---------- */
-$("btnForgot").onclick = () => {
-  $("pwModal").classList.remove("show");
+$("btnForgot").onclick = () => { $("pwModal").classList.remove("show"); openForgot(); };
+function openForgot(){
   const admin = loadAdmin();
   $("fpEmailShow").textContent = admin ? admin.email : "";
   $("fpErr").style.display = "none";
   $("fpStep1").style.display = "block"; $("fpStep2").style.display = "none";
   $("fpCode").value = ""; $("fpNewPw").value = ""; $("fpNewPw2").value = "";
   $("fpModal").classList.add("show");
-};
+}
 $("fpCancel1").onclick = $("fpCancel2").onclick = () => $("fpModal").classList.remove("show");
 
 function fpFail(m){ const e = $("fpErr"); e.textContent = m; e.style.display = "block"; }
