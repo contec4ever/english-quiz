@@ -197,6 +197,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <button class="speak-btn" id="qSpeak" title="השמע שוב">🔊</button>
       <div class="hint" id="qSpeakHint" style="display:none; text-align:center">לחץ להשמעה חוזרת</div>
       <button class="btn-ghost" id="btnReveal" style="display:none; margin:10px auto 4px">👁 הצג מילה</button>
+      <button class="btn-ghost" id="btnSayEn" style="display:none; margin:2px auto 10px">🔊 איך אומרים את זה באנגלית?</button>
       <input type="text" id="spellInput" dir="ltr" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="display:none; margin-bottom:10px; font-size:1.3rem; text-align:center; padding:14px" placeholder="ספֶּלינג — איית את המילה באנגלית">
       <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
@@ -509,7 +510,16 @@ function speakCurrent(){
   else speak(q[2], "he", "he-IL");
 }
 let revealedCurrent = false;
+let heardCurrent = false; // he2en: the English word was spoken as a hint
 function isDual(){ return quiz && quiz.mode === "listen" && quiz.dir === "en2he"; } // hear EN → spell EN + write HE
+
+$("btnSayEn").onclick = () => {
+  if(!quiz || quiz.dir !== "he2en") return;
+  heardCurrent = true;
+  speak(quiz.words[quiz.idx][1], "en", "en-US");
+  $("btnSayEn").textContent = "🔊 השמע שוב (יסומן בתוצאה)";
+  $("answerInput").focus();
+};
 
 $("btnReveal").onclick = () => {
   if(!quiz || quiz.mode !== "listen") return;
@@ -533,6 +543,10 @@ function renderQuestion(){
   const total = quiz.words.length;
   const listen = quiz.mode === "listen";
   revealedCurrent = false;
+  heardCurrent = false;
+  const sayBtn = $("btnSayEn");
+  sayBtn.style.display = quiz.dir === "he2en" && !listen && "speechSynthesis" in window ? "block" : "none";
+  sayBtn.textContent = "🔊 איך אומרים את זה באנגלית?";
   $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
   $("qDirLabel").textContent = (listen ? "האזן ו" : "") +
     (isDual() ? "איית באנגלית + כתוב את הפירוש בעברית" : quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
@@ -605,7 +619,7 @@ function submitAnswer(skip){
   const meaningOk = skip === true ? false : isCorrect(q, given);
   const spellOk = dual ? (skip !== true && normEn(spell) === normEn(q[1])) : null;
   const ok = meaningOk && (dual ? spellOk : true);
-  quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent });
+  quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent, heard: heardCurrent });
   quiz.idx++;
   if(quiz.idx < quiz.words.length){ renderQuestion(); }
   else { finishQuiz(); }
@@ -626,10 +640,10 @@ function finishQuiz(){
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
     num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, mode: quiz.mode, pages: quiz.pages,
     total, correct, score,
-    mistakes: quiz.answers.filter(a => !a.ok || a.revealed).map(a => ({
+    mistakes: quiz.answers.filter(a => !a.ok || a.revealed || a.heard).map(a => ({
       en: a.q[1], he: a.q[2], given: a.given,
       spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
-      ok: a.ok, revealed: !!a.revealed
+      ok: a.ok, revealed: !!a.revealed, heard: !!a.heard
     })),
     emailed: false
   };
@@ -665,6 +679,7 @@ async function emailResult(rec){
       line += (m.given ? `  |  נכתב: ${m.given}` : "  |  דילוג");
     }
     if(m.revealed) line += "  |  👁 המילה הוצגה";
+    if(m.heard) line += "  |  🔊 הושמעה באנגלית";
     return line;
   });
   try{
@@ -717,7 +732,8 @@ function modeLabel(m){ return m === "listen" ? "🔊 שמיעה" : ""; }
 function mistakesTable(mist, d){
   if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
   let rows = mist.map(m => {
-    const revTag = m.revealed ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">👁 הוצגה</div>` : "";
+    const revTag = (m.revealed ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">👁 הוצגה</div>` : "") +
+                   (m.heard ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">🔊 הושמעה באנגלית</div>` : "");
     let given;
     if(m.spell !== null && m.spell !== undefined){
       // listening test with spelling: show both parts, wrong part in red
