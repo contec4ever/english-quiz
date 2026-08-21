@@ -631,8 +631,9 @@ function finishQuiz(){
   $("resEmailStatus").textContent = "📧 שולח את התוצאה למייל…";
   emailResult(rec).then(ok => {
     if(ok){
-      markEmailed(rec.id);
-      $("resEmailStatus").textContent = "📧 התוצאה נשלחה למייל המנהל";
+      $("resEmailStatus").textContent = "📧 התוצאה נשלחה למייל";
+    } else if(rec.sentTo && rec.sentTo.length){
+      $("resEmailStatus").textContent = "📧 נשלח חלקית — ליתר הנמענים יישלח אוטומטית בפתיחה הבאה";
     } else {
       $("resEmailStatus").textContent = "⚠️ השליחה למייל נכשלה — תנוסה שוב אוטומטית בפתיחה הבאה";
     }
@@ -673,8 +674,11 @@ async function emailResult(rec){
     "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
     "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
   });
+  // send only to recipients that have not received this result yet (no duplicates on retry)
+  rec.sentTo = rec.sentTo || [];
   let allOk = true;
   for(const to of MAIL_TO){
+    if(rec.sentTo.includes(to)) continue;
     try{
       const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(to), {
         method: "POST",
@@ -682,22 +686,24 @@ async function emailResult(rec){
         body
       });
       const d = await resp.json().catch(() => ({}));
-      if(!(resp.ok && String(d.success) === "true")) allOk = false;
+      if(resp.ok && String(d.success) === "true") rec.sentTo.push(to);
+      else allOk = false;
     }catch(e){ allOk = false; }
   }
+  rec.emailed = allOk;
+  persistRec(rec);
   return allOk;
 }
-function markEmailed(id){
+function persistRec(rec){
   const h = loadHist();
-  const r = h.find(x => x.id === id);
-  if(r){ r.emailed = true; saveHist(h); }
+  const i = h.findIndex(x => x.id === rec.id);
+  if(i >= 0){ h[i] = rec; saveHist(h); }
 }
-// retry queue: on every app load, resend results that never reached the email
+// retry queue: on every app load, resend results that never reached all recipients
 async function processEmailQueue(){
   const pending = loadHist().filter(r => r.emailed === false);
   for(const r of pending){
-    if(await emailResult(r)) markEmailed(r.id);
-    else break; // service unreachable — try again next load
+    if(!await emailResult(r)) break; // service unreachable — try again next load
   }
 }
 processEmailQueue();
