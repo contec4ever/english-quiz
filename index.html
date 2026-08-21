@@ -88,6 +88,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 .empty{color:var(--muted); text-align:center; padding:18px 0;}
 .footer-note{text-align:center; color:var(--muted); font-size:.75rem; margin:20px 0 8px;}
 .screen{display:none;} .screen.active{display:block;}
+#cancelBanner{background:#fee2e2; color:var(--red); border:1px solid #fecaca; border-radius:12px; padding:12px 14px; margin-top:14px; font-size:.9rem; font-weight:600;}
 .modal-bg{position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
 .modal-bg.show{display:flex;}
 .modal{background:#fff; border-radius:16px; padding:20px; width:100%; max-width:360px;}
@@ -104,6 +105,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 
   <!-- ============ SETUP ============ -->
   <div id="scrSetup" class="screen active">
+    <div id="cancelBanner" style="display:none"></div>
     <div class="card">
       <h2>כיוון המבחן</h2>
       <div class="seg" id="dirSeg">
@@ -184,6 +186,18 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <button class="btn-danger" id="pwOk" style="flex:1">אפס הכל</button>
     </div>
     <button class="skip-link" id="btnForgot" style="margin-top:6px">שכחתי סיסמה</button>
+  </div>
+</div>
+
+<!-- quit-quiz confirm modal -->
+<div class="modal-bg" id="quitModal">
+  <div class="modal">
+    <h2>לבטל את המבחן?</h2>
+    <p class="hint">המבחן לא יישמר ולא יקבל ציון.</p>
+    <div class="row" style="margin-top:14px">
+      <button class="btn-ghost" id="quitNo" style="flex:1">המשך מבחן</button>
+      <button class="btn-danger" id="quitYes" style="flex:1">בטל מבחן</button>
+    </div>
   </div>
 </div>
 
@@ -328,9 +342,58 @@ function beginQuiz(){
     const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];
   }
   quiz = { words: arr.slice(0,n), idx: 0, answers: [], dir, pages: [...selPages].sort((a,b)=>a-b) };
+  $("cancelBanner").style.display = "none";
+  enterFullscreen();
   showScreen("scrQuiz");
   renderQuestion();
-};
+}
+
+/* ---------- fullscreen + anti-cheat guard ---------- */
+let fsRequested = false; // did we successfully enter fullscreen for this quiz
+function enterFullscreen(){
+  fsRequested = false;
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if(!req) return; // e.g. older iPhones — the tab/app-switch guard below still applies
+  try{
+    const p = req.call(el, {navigationUI: "hide"});
+    if(p && p.then) p.then(() => { fsRequested = true; }).catch(() => {});
+    else fsRequested = true;
+  }catch(e){}
+}
+function exitFullscreen(){
+  fsRequested = false;
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if(!fsEl) return;
+  try{
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    const p = ex && ex.call(document);
+    if(p && p.catch) p.catch(() => {});
+  }catch(e){}
+}
+function cancelQuiz(msg){
+  quiz = null;
+  exitFullscreen();
+  const b = $("cancelBanner");
+  b.textContent = "⚠️ " + msg;
+  b.style.display = "block";
+  showScreen("scrSetup");
+  renderHistory();
+}
+function violation(reason){
+  if(!quiz) return;
+  cancelQuiz("המבחן בוטל אוטומטית (" + reason + "). מבחן חייב להתבצע ברצף, במסך מלא, בלי לעבור לחלון או אפליקציה אחרת.");
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden) violation("המסך הוסתר או שעברת לטאב אחר"); });
+window.addEventListener("blur", () => {
+  setTimeout(() => { if(quiz && !document.hasFocus()) violation("המיקוד עבר לחלון אחר"); }, 400);
+});
+function onFsChange(){
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if(quiz && fsRequested && !fsEl) violation("יציאה ממסך מלא");
+}
+document.addEventListener("fullscreenchange", onFsChange);
+document.addEventListener("webkitfullscreenchange", onFsChange);
 
 /* ---------- quiz screen ---------- */
 function renderQuestion(){
@@ -353,7 +416,9 @@ $("answerInput").addEventListener("input", () => { $("btnNext").disabled = !$("a
 $("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && $("answerInput").value.trim()) submitAnswer(); });
 $("btnNext").onclick = submitAnswer;
 $("btnSkip").onclick = () => submitAnswer(true);
-$("btnQuit").onclick = () => { if(confirm("לבטל את המבחן? הוא לא יישמר.")){ quiz = null; showScreen("scrSetup"); renderHistory(); } };
+$("btnQuit").onclick = () => $("quitModal").classList.add("show");
+$("quitNo").onclick = () => { $("quitModal").classList.remove("show"); $("answerInput").focus(); };
+$("quitYes").onclick = () => { $("quitModal").classList.remove("show"); cancelQuiz("המבחן בוטל — לא נשמר."); };
 
 function isCorrect(q, given){
   if(quiz.dir === "en2he"){
@@ -402,6 +467,7 @@ function finishQuiz(){
   const h = loadHist(); h.push(rec); saveHist(h);
   renderResult(rec);
   quiz = null;
+  exitFullscreen();
   showScreen("scrResult");
 }
 
