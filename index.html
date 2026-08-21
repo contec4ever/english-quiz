@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>מבחן מילים באנגלית</title>
+<meta property="og:title" content="מבחן מילים באנגלית">
+<meta property="og:description" content="מבחן על 1,500 מילים ופעלים באנגלית — לפי עמודים">
+<style>
+:root{
+  --bg:#f0f4f8; --card:#ffffff; --text:#1a2433; --muted:#64748b;
+  --accent:#2563eb; --accent-dark:#1d4ed8; --green:#16a34a; --red:#dc2626;
+  --border:#e2e8f0; --chip:#eef2f7; --chip-on:#2563eb;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Noto Sans Hebrew",sans-serif;
+  min-height:100vh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.wrap{max-width:560px; margin:0 auto; padding:16px;}
+header.app{ text-align:center; padding:10px 0 2px;}
+header.app h1{font-size:1.45rem; margin:0;}
+header.app .sub{color:var(--muted); font-size:.9rem; margin-top:4px;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px; margin-top:14px; box-shadow:0 1px 3px rgba(15,23,42,.06);}
+h2{font-size:1.05rem; margin:0 0 10px;}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+button{
+  font-family:inherit; font-size:1rem; border:none; border-radius:12px;
+  padding:12px 18px; cursor:pointer; touch-action:manipulation;
+}
+.btn-primary{background:var(--accent); color:#fff; font-weight:600; width:100%; padding:15px; font-size:1.1rem;}
+.btn-primary:active{background:var(--accent-dark);}
+.btn-primary:disabled{background:#a8bede; cursor:default;}
+.btn-ghost{background:var(--chip); color:var(--text); font-size:.85rem; padding:8px 12px;}
+.btn-danger{background:#fee2e2; color:var(--red); font-size:.85rem; padding:8px 12px;}
+.seg{display:flex; background:var(--chip); border-radius:12px; padding:4px; gap:4px;}
+.seg button{flex:1; background:transparent; padding:10px 6px; font-size:.95rem; border-radius:9px; color:var(--muted); font-weight:600;}
+.seg button.on{background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(15,23,42,.15);}
+.pages-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:7px; margin-top:10px;}
+.pchip{
+  background:var(--chip); border-radius:10px; text-align:center; padding:11px 0;
+  font-weight:600; font-size:.95rem; cursor:pointer; user-select:none; border:2px solid transparent;
+}
+.pchip.on{background:var(--chip-on); color:#fff;}
+input[type=number], input[type=text], input[type=password]{
+  font-family:inherit; font-size:1.05rem; padding:12px; border:1.5px solid var(--border);
+  border-radius:12px; width:100%; background:#fff; color:var(--text);
+}
+input:focus{outline:none; border-color:var(--accent);}
+.hint{color:var(--muted); font-size:.85rem; margin-top:6px;}
+.pool-info{font-weight:600; color:var(--accent); font-size:.9rem;}
+/* quiz */
+.progress-bar{height:8px; background:var(--chip); border-radius:99px; overflow:hidden; margin-top:8px;}
+.progress-bar > div{height:100%; background:var(--accent); border-radius:99px; transition:width .25s;}
+.qword{
+  text-align:center; font-size:2.2rem; font-weight:700; padding:26px 8px; word-break:break-word;
+}
+.qword.en{direction:ltr; font-family:Georgia,'Times New Roman',serif;}
+.qmeta{display:flex; justify-content:space-between; color:var(--muted); font-size:.85rem;}
+#answerInput{font-size:1.3rem; text-align:center; padding:14px;}
+.skip-link{background:none; color:var(--muted); text-decoration:underline; font-size:.85rem; padding:8px; width:auto; margin:0 auto; display:block;}
+/* results */
+.score-big{text-align:center; padding:8px 0 4px;}
+.score-big .num{font-size:3.4rem; font-weight:800;}
+.score-big .num.good{color:var(--green);} .score-big .num.mid{color:#d97706;} .score-big .num.bad{color:var(--red);}
+.score-sub{text-align:center; color:var(--muted); font-size:.95rem;}
+.test-id-box{
+  background:var(--chip); border-radius:12px; padding:10px 14px; text-align:center;
+  font-size:.85rem; color:var(--muted); margin-top:12px;
+}
+.test-id-box b{color:var(--text);}
+table.mist{width:100%; border-collapse:collapse; font-size:.92rem; margin-top:8px;}
+table.mist th{color:var(--muted); font-weight:600; text-align:right; padding:6px 4px; border-bottom:1.5px solid var(--border); font-size:.8rem;}
+table.mist td{padding:8px 4px; border-bottom:1px solid var(--border); vertical-align:top;}
+td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
+.ltr{direction:ltr; text-align:left;}
+/* history */
+.hist-item{border-bottom:1px solid var(--border); padding:12px 2px;}
+.hist-item:last-child{border-bottom:none;}
+.hist-top{display:flex; justify-content:space-between; align-items:center; cursor:pointer;}
+.hist-score{font-weight:800; font-size:1.15rem;}
+.hist-score.good{color:var(--green);} .hist-score.mid{color:#d97706;} .hist-score.bad{color:var(--red);}
+.hist-meta{color:var(--muted); font-size:.82rem; margin-top:2px;}
+.hist-detail{display:none; margin-top:8px;}
+.hist-item.open .hist-detail{display:block;}
+.empty{color:var(--muted); text-align:center; padding:18px 0;}
+.footer-note{text-align:center; color:var(--muted); font-size:.75rem; margin:20px 0 8px;}
+.screen{display:none;} .screen.active{display:block;}
+.modal-bg{position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
+.modal-bg.show{display:flex;}
+.modal{background:#fff; border-radius:16px; padding:20px; width:100%; max-width:360px;}
+.warn{color:var(--red); font-size:.85rem; margin-top:8px;}
+@media (max-width:400px){ .qword{font-size:1.8rem;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>📘 מבחן מילים באנגלית</h1>
+    <div class="sub">1,500 מילים ופעלים · עמודים 1–38</div>
+  </header>
+
+  <!-- ============ SETUP ============ -->
+  <div id="scrSetup" class="screen active">
+    <div class="card">
+      <h2>כיוון המבחן</h2>
+      <div class="seg" id="dirSeg">
+        <button data-dir="en2he" class="on">אנגלית ⬅ עברית<br><small>רואים אנגלית, עונים בעברית</small></button>
+        <button data-dir="he2en">עברית ⬅ אנגלית<br><small>רואים עברית, עונים באנגלית</small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>עמודים למבחן</h2>
+      <div class="row">
+        <button class="btn-ghost" id="btnAllPages">בחר הכל</button>
+        <button class="btn-ghost" id="btnNoPages">נקה בחירה</button>
+        <span class="pool-info" id="poolInfo"></span>
+      </div>
+      <div class="pages-grid" id="pagesGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>כמה מילים במבחן?</h2>
+      <input type="number" id="numWords" min="1" inputmode="numeric" value="20">
+      <div class="hint" id="numHint"></div>
+    </div>
+
+    <button class="btn-primary" id="btnStart" style="margin-top:16px">🚀 התחל מבחן</button>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">📋 מבחנים שהסתיימו</h2>
+        <button class="btn-danger" id="btnReset">איפוס (מנהל)</button>
+      </div>
+      <div id="histList"></div>
+    </div>
+
+    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · תוצאות נשמרות במכשיר זה בלבד</div>
+  </div>
+
+  <!-- ============ QUIZ ============ -->
+  <div id="scrQuiz" class="screen">
+    <div class="card">
+      <div class="qmeta">
+        <span id="qProgress"></span>
+        <span id="qDirLabel"></span>
+      </div>
+      <div class="progress-bar"><div id="qBar" style="width:0%"></div></div>
+      <div class="qword" id="qWord"></div>
+      <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
+      <button class="skip-link" id="btnSkip">דלג (ייחשב כטעות)</button>
+    </div>
+    <button class="skip-link" id="btnQuit" style="margin-top:10px">❌ ביטול מבחן (לא יישמר)</button>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div id="scrResult" class="screen">
+    <div class="card">
+      <div class="score-big"><span class="num" id="resScore"></span></div>
+      <div class="score-sub" id="resSub"></div>
+      <div class="test-id-box" id="resIdBox"></div>
+    </div>
+    <div class="card" id="resMistCard">
+      <h2>❌ מילים עם טעות</h2>
+      <div id="resMist"></div>
+    </div>
+    <button class="btn-primary" id="btnAgain" style="margin-top:16px">מבחן חדש</button>
+  </div>
+</div>
+
+<!-- password modal -->
+<div class="modal-bg" id="pwModal">
+  <div class="modal">
+    <h2>איפוס היסטוריית מבחנים</h2>
+    <p class="hint">פעולה זו מוחקת את כל המבחנים השמורים ומאפסת את מונה המבחנים. נדרשת סיסמת מנהל.</p>
+    <input type="password" id="pwInput" placeholder="סיסמת מנהל">
+    <div class="warn" id="pwErr" style="display:none">סיסמה שגויה</div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn-ghost" id="pwCancel" style="flex:1">ביטול</button>
+      <button class="btn-danger" id="pwOk" style="flex:1">אפס הכל</button>
+    </div>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script>
+"use strict";
+/* ===== admin password (SHA-256 hex of the password) ===== */
+const ADMIN_HASH = "79a62fc44060aa0918a011fa8a319bcd27ed83218bbec2d12e59983cf7ebbc59";
+
+const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1";
+const $ = id => document.getElementById(id);
+
+/* ---------- data indexes: accept synonyms ---------- */
+function heAlts(he){ return he.split("/").map(s => normHe(s)).filter(Boolean); }
+function normHe(s){ return (s||"").replace(/[.,!?'"־-]/g," ").replace(/\s+/g," ").trim(); }
+function normEn(s){ return (s||"").toLowerCase().replace(/[.,!?'"]/g,"").replace(/\s+/g," ").trim(); }
+// he-alt -> set of english words ; en -> set of he alts
+const he2enMap = new Map(), en2heMap = new Map();
+for(const [,en,he] of WORDS){
+  const enN = normEn(en);
+  if(!en2heMap.has(enN)) en2heMap.set(enN, new Set());
+  for(const a of heAlts(he)){
+    en2heMap.get(enN).add(a);
+    if(!he2enMap.has(a)) he2enMap.set(a, new Set());
+    he2enMap.get(a).add(enN);
+  }
+}
+
+/* ---------- state ---------- */
+let dir = "en2he";
+const selPages = new Set();
+let quiz = null; // {words:[[p,en,he]], idx, answers:[], dir, pages:[]}
+
+/* ---------- setup screen ---------- */
+const PAGES = [...new Set(WORDS.map(w => w[0]))].sort((a,b)=>a-b);
+const grid = $("pagesGrid");
+for(const p of PAGES){
+  const d = document.createElement("div");
+  d.className = "pchip"; d.textContent = p; d.dataset.p = p;
+  d.onclick = () => { d.classList.toggle("on");
+    d.classList.contains("on") ? selPages.add(p) : selPages.delete(p); refreshPool(); };
+  grid.appendChild(d);
+}
+$("btnAllPages").onclick = () => { document.querySelectorAll(".pchip").forEach(c=>{c.classList.add("on"); selPages.add(+c.dataset.p);}); refreshPool(); };
+$("btnNoPages").onclick = () => { document.querySelectorAll(".pchip").forEach(c=>c.classList.remove("on")); selPages.clear(); refreshPool(); };
+
+function poolSize(){ return WORDS.filter(w => selPages.has(w[0])).length; }
+function refreshPool(){
+  const n = poolSize();
+  $("poolInfo").textContent = n ? `נבחרו ${selPages.size} עמודים · ${n} מילים` : "";
+  $("numHint").textContent = n ? `אפשר עד ${n} מילים מהעמודים שנבחרו` : "בחר קודם עמודים";
+  $("btnStart").disabled = !n;
+}
+refreshPool();
+
+$("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("dirSeg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); dir = b.dataset.dir;
+});
+
+$("btnStart").onclick = () => {
+  const pool = WORDS.filter(w => selPages.has(w[0]));
+  if(!pool.length) return;
+  let n = parseInt($("numWords").value, 10);
+  if(isNaN(n) || n < 1) n = 1;
+  if(n > pool.length) n = pool.length;
+  $("numWords").value = n;
+  // shuffle (Fisher-Yates) and take n
+  const arr = pool.slice();
+  for(let i = arr.length-1; i > 0; i--){
+    const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  quiz = { words: arr.slice(0,n), idx: 0, answers: [], dir, pages: [...selPages].sort((a,b)=>a-b) };
+  showScreen("scrQuiz");
+  renderQuestion();
+};
+
+/* ---------- quiz screen ---------- */
+function renderQuestion(){
+  const q = quiz.words[quiz.idx];
+  const total = quiz.words.length;
+  $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
+  $("qDirLabel").textContent = quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית";
+  $("qBar").style.width = (100*quiz.idx/total) + "%";
+  const w = $("qWord");
+  if(quiz.dir === "en2he"){ w.textContent = q[1]; w.className = "qword en"; }
+  else { w.textContent = q[2]; w.className = "qword"; }
+  const inp = $("answerInput");
+  inp.value = "";
+  if(quiz.dir === "en2he"){ inp.dir = "rtl"; inp.lang = "he"; inp.placeholder = "התשובה בעברית"; inp.autocapitalize = "off"; }
+  else { inp.dir = "ltr"; inp.lang = "en"; inp.placeholder = "answer in English"; inp.autocapitalize = "none"; }
+  $("btnNext").disabled = true;
+  inp.focus();
+}
+$("answerInput").addEventListener("input", () => { $("btnNext").disabled = !$("answerInput").value.trim(); });
+$("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && $("answerInput").value.trim()) submitAnswer(); });
+$("btnNext").onclick = submitAnswer;
+$("btnSkip").onclick = () => submitAnswer(true);
+$("btnQuit").onclick = () => { if(confirm("לבטל את המבחן? הוא לא יישמר.")){ quiz = null; showScreen("scrSetup"); renderHistory(); } };
+
+function isCorrect(q, given){
+  if(quiz.dir === "en2he"){
+    const g = normHe(given);
+    if(!g) return false;
+    const ok = en2heMap.get(normEn(q[1])) || new Set();
+    return ok.has(g);
+  } else {
+    const g = normEn(given);
+    if(!g) return false;
+    // any english word that is a valid translation of any alternative of the shown hebrew
+    for(const a of heAlts(q[2])){
+      const s = he2enMap.get(a);
+      if(s && s.has(g)) return true;
+    }
+    return false;
+  }
+}
+
+function submitAnswer(skip){
+  const q = quiz.words[quiz.idx];
+  const given = skip === true ? "" : $("answerInput").value.trim();
+  quiz.answers.push({ q, given, ok: skip === true ? false : isCorrect(q, given) });
+  quiz.idx++;
+  if(quiz.idx < quiz.words.length){ renderQuestion(); }
+  else { finishQuiz(); }
+}
+
+/* ---------- finish & save ---------- */
+function loadHist(){ try{ return JSON.parse(localStorage.getItem(HKEY)) || []; }catch(e){ return []; } }
+function saveHist(h){ localStorage.setItem(HKEY, JSON.stringify(h)); }
+
+function finishQuiz(){
+  const total = quiz.answers.length;
+  const correct = quiz.answers.filter(a => a.ok).length;
+  const score = Math.round(100*correct/total);
+  const num = (parseInt(localStorage.getItem(CKEY),10) || 0) + 1;
+  localStorage.setItem(CKEY, String(num));
+  const now = new Date();
+  const rec = {
+    id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
+    num, ts: now.toISOString(), dir: quiz.dir, pages: quiz.pages,
+    total, correct, score,
+    mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given }))
+  };
+  const h = loadHist(); h.push(rec); saveHist(h);
+  renderResult(rec);
+  quiz = null;
+  showScreen("scrResult");
+}
+
+function fmtDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString("he-IL", {day:"2-digit", month:"2-digit", year:"numeric"}) +
+         " · " + d.toLocaleTimeString("he-IL", {hour:"2-digit", minute:"2-digit"});
+}
+function scoreClass(s){ return s >= 85 ? "good" : s >= 60 ? "mid" : "bad"; }
+function dirLabel(d){ return d === "en2he" ? "אנגלית ⬅ עברית" : "עברית ⬅ אנגלית"; }
+
+function mistakesTable(mist, d){
+  if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
+  let rows = mist.map(m => {
+    const given = m.given ? (d === "he2en" ? `<span class="ltr">${esc(m.given)}</span>` : esc(m.given)) : "<i>דילוג</i>";
+    return `<tr>
+      <td class="ltr">${esc(m.en)}</td>
+      <td class="corr">${esc(m.he)}</td>
+      <td class="given">${given}</td>
+    </tr>`;
+  }).join("");
+  return `<table class="mist"><thead><tr><th>אנגלית</th><th>תשובה נכונה</th><th>מה נכתב</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function renderResult(rec){
+  const el = $("resScore");
+  el.textContent = rec.score;
+  el.className = "num " + scoreClass(rec.score);
+  $("resSub").textContent = `${rec.correct} נכונות מתוך ${rec.total} · ${dirLabel(rec.dir)} · עמודים ${rec.pages.join(", ")}`;
+  $("resIdBox").innerHTML = `מבחן מספר <b>${rec.num}</b> · מזהה <b>${rec.id}</b><br>${fmtDate(rec.ts)}`;
+  $("resMist").innerHTML = mistakesTable(rec.mistakes, rec.dir);
+}
+$("btnAgain").onclick = () => { showScreen("scrSetup"); renderHistory(); };
+
+/* ---------- history ---------- */
+function renderHistory(){
+  const h = loadHist().slice().reverse();
+  const list = $("histList");
+  if(!h.length){ list.innerHTML = `<div class="empty">עדיין אין מבחנים שהסתיימו</div>`; return; }
+  list.innerHTML = h.map((r,i) => `
+    <div class="hist-item" data-i="${i}">
+      <div class="hist-top">
+        <div>
+          <div><b>מבחן ${r.num}</b> <span class="hist-meta">· ${r.id}</span></div>
+          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
+        </div>
+        <div class="hist-score ${scoreClass(r.score)}">${r.score}</div>
+      </div>
+      <div class="hist-detail">${mistakesTable(r.mistakes, r.dir)}</div>
+    </div>`).join("");
+  list.querySelectorAll(".hist-item").forEach(el => {
+    el.querySelector(".hist-top").onclick = () => el.classList.toggle("open");
+  });
+}
+
+/* ---------- admin reset ---------- */
+$("btnReset").onclick = () => { $("pwInput").value = ""; $("pwErr").style.display = "none"; $("pwModal").classList.add("show"); $("pwInput").focus(); };
+$("pwCancel").onclick = () => $("pwModal").classList.remove("show");
+$("pwOk").onclick = async () => {
+  const pw = $("pwInput").value;
+  const hash = await sha256(pw);
+  if(hash === ADMIN_HASH){
+    localStorage.removeItem(HKEY); localStorage.removeItem(CKEY);
+    $("pwModal").classList.remove("show");
+    renderHistory();
+  } else {
+    $("pwErr").style.display = "block";
+  }
+};
+$("pwInput").addEventListener("keydown", e => { if(e.key === "Enter") $("pwOk").click(); });
+
+async function sha256(str){
+  if(crypto && crypto.subtle){
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+  // fallback (non-secure contexts): simple FNV-1a, marked with prefix
+  let h = 0x811c9dc5;
+  for(let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return "fnv" + h.toString(16);
+}
+
+/* ---------- screens ---------- */
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+  window.scrollTo(0,0);
+}
+// leaving mid-quiz = nothing saved (state is in memory only)
+window.addEventListener("beforeunload", e => { if(quiz){ e.preventDefault(); e.returnValue = ""; } });
+
+renderHistory();
+</script>
+</body>
+</html>
