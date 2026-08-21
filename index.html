@@ -640,6 +640,12 @@ function finishQuiz(){
 }
 
 /* ---------- email results to admin ---------- */
+// recipients: FormSubmit alias (preferred, hides the address) or a plain address.
+// to add/remove a recipient — edit this list.
+const MAIL_TO = [
+  "ff3ba52cd0b5cd4b875d96df9d8f2c13", // giora
+  "ronit@contec.co.il"                // ronit (will be swapped to an alias after she activates)
+];
 async function emailResult(rec){
   const mist = rec.mistakes.map(m => {
     let line = `${m.en} = ${m.he}`;
@@ -654,28 +660,32 @@ async function emailResult(rec){
     if(m.heard) line += "  |  🔊 הושמעה באנגלית";
     return line;
   });
-  try{
-    // FormSubmit alias for the admin email (keeps the address out of the public source)
-    const resp = await fetch("https://formsubmit.co/ajax/ff3ba52cd0b5cd4b875d96df9d8f2c13", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        _subject: `תוצאת מבחן ${rec.num} — ציון ${rec.score} (${rec.correct}/${rec.total})`,
-        _template: "box",
-        _captcha: "false",
-        "מזהה מבחן": rec.id,
-        "תאריך ושעה": fmtDate(rec.ts),
-        "כיוון": dirLabel(rec.dir),
-        "רמת קושי": diffLabel(rec.diff) || "—",
-        "אופן הצגה": rec.mode === "listen" ? "🔊 שמיעה" : "👁 קריאה",
-        "עמודים": rec.pages.join(", "),
-        "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
-        "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
-      })
-    });
-    const d = await resp.json().catch(() => ({}));
-    return resp.ok && String(d.success) === "true";
-  }catch(e){ return false; }
+  const body = JSON.stringify({
+    _subject: `תוצאת מבחן ${rec.num} — ציון ${rec.score} (${rec.correct}/${rec.total})`,
+    _template: "box",
+    _captcha: "false",
+    "מזהה מבחן": rec.id,
+    "תאריך ושעה": fmtDate(rec.ts),
+    "כיוון": dirLabel(rec.dir),
+    "רמת קושי": diffLabel(rec.diff) || "—",
+    "אופן הצגה": rec.mode === "listen" ? "🔊 שמיעה" : "👁 קריאה",
+    "עמודים": rec.pages.join(", "),
+    "ציון": `${rec.score} — ${rec.correct} נכונות מתוך ${rec.total}`,
+    "טעויות": mist.length ? mist.join("\n") : "אין טעויות — 100! 🎉"
+  });
+  let allOk = true;
+  for(const to of MAIL_TO){
+    try{
+      const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(to), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body
+      });
+      const d = await resp.json().catch(() => ({}));
+      if(!(resp.ok && String(d.success) === "true")) allOk = false;
+    }catch(e){ allOk = false; }
+  }
+  return allOk;
 }
 function markEmailed(id){
   const h = loadHist();
