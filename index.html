@@ -195,6 +195,8 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div class="qword" id="qWord"></div>
       <button class="speak-btn" id="qSpeak" title="השמע שוב">🔊</button>
       <div class="hint" id="qSpeakHint" style="display:none; text-align:center">לחץ להשמעה חוזרת</div>
+      <button class="btn-ghost" id="btnReveal" style="display:none; margin:10px auto 4px">👁 הצג מילה</button>
+      <input type="text" id="spellInput" dir="ltr" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="display:none; margin-bottom:10px; font-size:1.3rem; text-align:center; padding:14px" placeholder="ספֶּלינג — איית את המילה באנגלית">
       <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
       <button class="skip-link" id="btnSkip">דלג (ייחשב כטעות)</button>
@@ -211,7 +213,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div class="hint" id="resEmailStatus" style="text-align:center"></div>
     </div>
     <div class="card" id="resMistCard">
-      <h2>❌ מילים עם טעות</h2>
+      <h2>❌ טעויות ומילים שהוצגו</h2>
       <div id="resMist"></div>
     </div>
     <button class="btn-primary" id="btnAgain" style="margin-top:16px">מבחן חדש</button>
@@ -305,7 +307,6 @@ function speak(text, langPrefix, langFull){
   const v = pickVoice(langPrefix);
   if(v) u.voice = v;
   u.rate = 0.85;
-  u.onerror = revealWord; // if the device can't speak it, show the word instead
   speechSynthesis.speak(u);
   return true;
 }
@@ -493,18 +494,25 @@ function speakCurrent(){
   if(quiz.dir === "en2he") speak(q[1], "en", "en-US");
   else speak(q[2], "he", "he-IL");
 }
-function revealWord(){ // fallback when the device cannot speak
+let revealedCurrent = false;
+function isDual(){ return quiz && quiz.mode === "listen" && quiz.dir === "en2he"; } // hear EN → spell EN + write HE
+
+$("btnReveal").onclick = () => {
   if(!quiz || quiz.mode !== "listen") return;
+  revealedCurrent = true;
   $("qWord").style.display = "";
-  $("qSpeakHint").textContent = "⚠️ ההקראה נכשלה — המילה מוצגת";
-}
+  $("btnReveal").disabled = true;
+  $("btnReveal").textContent = "👁 המילה מוצגת (יסומן בתוצאה)";
+};
 
 function renderQuestion(){
   const q = quiz.words[quiz.idx];
   const total = quiz.words.length;
   const listen = quiz.mode === "listen";
+  revealedCurrent = false;
   $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
-  $("qDirLabel").textContent = (listen ? "האזן ו" : "") + (quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
+  $("qDirLabel").textContent = (listen ? "האזן ו" : "") +
+    (isDual() ? "איית באנגלית + כתוב את הפירוש בעברית" : quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
   $("qBar").style.width = (100*quiz.idx/total) + "%";
   const w = $("qWord");
   const dCls = " d" + (q[3] || 2); // color by difficulty: green / amber / red
@@ -516,16 +524,30 @@ function renderQuestion(){
   sp.className = "speak-btn d" + (q[3] || 2);
   $("qSpeakHint").style.display = listen ? "block" : "none";
   $("qSpeakHint").textContent = "לחץ להשמעה חוזרת";
+  const rb = $("btnReveal");
+  rb.style.display = listen ? "block" : "none";
+  rb.disabled = false;
+  rb.textContent = "👁 הצג מילה";
+  const sInp = $("spellInput");
+  sInp.style.display = isDual() ? "block" : "none";
+  sInp.value = "";
   if(listen) speakCurrent();
   const inp = $("answerInput");
   inp.value = "";
-  if(quiz.dir === "en2he"){ inp.dir = "rtl"; inp.lang = "he"; inp.placeholder = "התשובה בעברית"; inp.autocapitalize = "off"; }
+  if(quiz.dir === "en2he"){ inp.dir = "rtl"; inp.lang = "he"; inp.placeholder = isDual() ? "הפירוש בעברית" : "התשובה בעברית"; inp.autocapitalize = "off"; }
   else { inp.dir = "ltr"; inp.lang = "en"; inp.placeholder = "answer in English"; inp.autocapitalize = "none"; }
   $("btnNext").disabled = true;
-  inp.focus();
+  (isDual() ? sInp : inp).focus();
 }
-$("answerInput").addEventListener("input", () => { $("btnNext").disabled = !$("answerInput").value.trim(); });
-$("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && $("answerInput").value.trim()) submitAnswer(); });
+function nextReady(){
+  const a = $("answerInput").value.trim();
+  return isDual() ? !!(a && $("spellInput").value.trim()) : !!a;
+}
+function updateNextBtn(){ $("btnNext").disabled = !nextReady(); }
+$("answerInput").addEventListener("input", updateNextBtn);
+$("spellInput").addEventListener("input", updateNextBtn);
+$("answerInput").addEventListener("keydown", e => { if(e.key === "Enter" && nextReady()) submitAnswer(); });
+$("spellInput").addEventListener("keydown", e => { if(e.key === "Enter") $("answerInput").focus(); });
 $("btnNext").onclick = submitAnswer;
 $("btnSkip").onclick = () => submitAnswer(true);
 $("qSpeak").onclick = () => { speakCurrent(); $("answerInput").focus(); };
@@ -553,8 +575,13 @@ function isCorrect(q, given){
 
 function submitAnswer(skip){
   const q = quiz.words[quiz.idx];
+  const dual = isDual();
   const given = skip === true ? "" : $("answerInput").value.trim();
-  quiz.answers.push({ q, given, ok: skip === true ? false : isCorrect(q, given) });
+  const spell = dual ? (skip === true ? "" : $("spellInput").value.trim()) : null;
+  const meaningOk = skip === true ? false : isCorrect(q, given);
+  const spellOk = dual ? (skip !== true && normEn(spell) === normEn(q[1])) : null;
+  const ok = meaningOk && (dual ? spellOk : true);
+  quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent });
   quiz.idx++;
   if(quiz.idx < quiz.words.length){ renderQuestion(); }
   else { finishQuiz(); }
@@ -575,7 +602,11 @@ function finishQuiz(){
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
     num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, mode: quiz.mode, pages: quiz.pages,
     total, correct, score,
-    mistakes: quiz.answers.filter(a => !a.ok).map(a => ({ en: a.q[1], he: a.q[2], given: a.given })),
+    mistakes: quiz.answers.filter(a => !a.ok || a.revealed).map(a => ({
+      en: a.q[1], he: a.q[2], given: a.given,
+      spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
+      ok: a.ok, revealed: !!a.revealed
+    })),
     emailed: false
   };
   const h = loadHist(); h.push(rec); saveHist(h);
@@ -600,9 +631,18 @@ function finishQuiz(){
 async function emailResult(rec){
   const admin = loadAdmin();
   if(!admin || !admin.email) return false;
-  const mist = rec.mistakes.map(m =>
-    `${m.en} = ${m.he}` + (m.given ? `  |  נכתב: ${m.given}` : "  |  דילוג")
-  );
+  const mist = rec.mistakes.map(m => {
+    let line = `${m.en} = ${m.he}`;
+    if(m.spell !== null && m.spell !== undefined){
+      line += `  |  איות: ${m.spell || "-"} ${m.spellOk ? "✓" : "✗"}  |  פירוש: ${m.given || "-"} ${m.meaningOk ? "✓" : "✗"}`;
+    } else if(m.ok){
+      line += `  |  נענתה נכון: ${m.given}`;
+    } else {
+      line += (m.given ? `  |  נכתב: ${m.given}` : "  |  דילוג");
+    }
+    if(m.revealed) line += "  |  👁 המילה הוצגה";
+    return line;
+  });
   try{
     const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(admin.email), {
       method: "POST",
@@ -653,11 +693,24 @@ function modeLabel(m){ return m === "listen" ? "🔊 שמיעה" : ""; }
 function mistakesTable(mist, d){
   if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
   let rows = mist.map(m => {
-    const given = m.given ? (d === "he2en" ? `<span class="ltr">${esc(m.given)}</span>` : esc(m.given)) : "<i>דילוג</i>";
+    const revTag = m.revealed ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">👁 הוצגה</div>` : "";
+    let given;
+    if(m.spell !== null && m.spell !== undefined){
+      // listening test with spelling: show both parts, wrong part in red
+      const sp = m.spell ? `<span class="ltr">${esc(m.spell)}</span>` : "<i>ריק</i>";
+      const gv = m.given ? esc(m.given) : "<i>ריק</i>";
+      given = `<div style="color:${m.spellOk ? "var(--green)" : "var(--red)"}">איות: ${sp}</div>` +
+              `<div style="color:${m.meaningOk ? "var(--green)" : "var(--red)"}">פירוש: ${gv}</div>`;
+    } else if(m.ok){
+      // answered correctly but the word was revealed
+      given = `<span style="color:var(--green)">${d === "he2en" ? `<span class="ltr">${esc(m.given)}</span>` : esc(m.given)} ✓</span>`;
+    } else {
+      given = m.given ? `<span style="color:var(--red)">${d === "he2en" ? `<span class="ltr">${esc(m.given)}</span>` : esc(m.given)}</span>` : "<i>דילוג</i>";
+    }
     return `<tr>
-      <td class="ltr">${esc(m.en)}</td>
+      <td class="ltr">${esc(m.en)}${revTag}</td>
       <td class="corr">${esc(m.he)}</td>
-      <td class="given">${given}</td>
+      <td>${given}</td>
     </tr>`;
   }).join("");
   return `<table class="mist"><thead><tr><th>אנגלית</th><th>תשובה נכונה</th><th>מה נכתב</th></tr></thead><tbody>${rows}</tbody></table>`;
