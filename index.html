@@ -145,7 +145,6 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div class="row" style="justify-content:space-between">
         <h2 style="margin:0">📋 מבחנים שהסתיימו</h2>
         <span class="row" style="gap:6px">
-          <button class="btn-ghost" id="btnLink">🔗 מכשיר נוסף</button>
           <button class="btn-danger" id="btnReset">איפוס (מנהל)</button>
         </span>
       </div>
@@ -198,33 +197,10 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <button class="btn-ghost" id="pwCancel" style="flex:1">ביטול</button>
       <button class="btn-danger" id="pwOk" style="flex:1">אפס הכל</button>
     </div>
-    <button class="skip-link" id="btnForgot" style="margin-top:6px">שכחתי סיסמה</button>
   </div>
 </div>
 
-<!-- device-link modal -->
-<div class="modal-bg" id="linkModal">
-  <div class="modal">
-    <h2>🔗 הגדרת מכשיר נוסף</h2>
-    <div id="lkStep1">
-      <p class="hint">במקום ליצור סיסמה מחדש בכל מכשיר: הזן את סיסמת המנהל, קבל קישור מיוחד, שלח אותו לעצמך ופתח במכשיר השני — הסיסמה והמייל יוגדרו שם אוטומטית.</p>
-      <input type="password" id="lkPw" placeholder="סיסמת מנהל">
-      <div class="warn" id="lkErr" style="display:none">סיסמה שגויה</div>
-      <div class="row" style="margin-top:14px">
-        <button class="btn-ghost" id="lkCancel" style="flex:1">ביטול</button>
-        <button class="btn-primary" id="lkOk" style="flex:1; width:auto; padding:12px">צור קישור</button>
-      </div>
-    </div>
-    <div id="lkStep2" style="display:none">
-      <p class="hint">שלח לעצמך את הקישור (וואטסאפ / מייל) ופתח אותו במכשיר השני.<br>⚠️ שמור את הקישור לעצמך — מי שפותח אותו הופך למנהל באותו מכשיר.</p>
-      <input type="text" id="lkUrl" readonly dir="ltr" style="font-size:.78rem">
-      <button class="btn-primary" id="lkCopy" style="margin-top:10px">📋 העתק קישור</button>
-      <button class="skip-link" id="lkClose">סגור</button>
-    </div>
-  </div>
-</div>
 
-<!-- quit-quiz confirm modal -->
 <div class="modal-bg" id="quitModal">
   <div class="modal">
     <h2>לבטל את המבחן?</h2>
@@ -247,54 +223,16 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <button class="btn-ghost" id="startCancel" style="flex:1">ביטול</button>
       <button class="btn-primary" id="startOk" style="flex:1; width:auto; padding:12px">התחל מבחן</button>
     </div>
-    <button class="skip-link" id="startForgot" style="margin-top:6px">שכחתי סיסמה</button>
   </div>
 </div>
 
-<!-- first-run setup modal -->
-<div class="modal-bg" id="setupModal">
-  <div class="modal">
-    <h2>🔐 הגדרה ראשונית — סיסמת מנהל</h2>
-    <p class="hint">בפתיחה הראשונה במכשיר זה יש ליצור סיסמת מנהל. הסיסמה נדרשת רק לאיפוס היסטוריית המבחנים — לא לביצוע מבחן.</p>
-    <input type="password" id="suPw" placeholder="סיסמה חדשה (לפחות 4 תווים)">
-    <input type="password" id="suPw2" placeholder="אימות סיסמה" style="margin-top:8px">
-    <input type="email" id="suEmail" placeholder="אימייל לשחזור סיסמה" dir="ltr" style="margin-top:8px">
-    <div class="warn" id="suErr" style="display:none"></div>
-    <button class="btn-primary" id="suSave" style="margin-top:14px">שמור והתחל</button>
-  </div>
-</div>
 
-<!-- forgot password modal -->
-<div class="modal-bg" id="fpModal">
-  <div class="modal">
-    <h2>שחזור סיסמה</h2>
-    <div id="fpStep1">
-      <p class="hint">יישלח קוד אימות בן 6 ספרות לאימייל שהוגדר:<br><b id="fpEmailShow" class="ltr" style="display:inline-block"></b></p>
-      <p class="hint">💡 בפעם הראשונה בלבד: יגיע קודם מייל אישור משירות FormSubmit — יש ללחוץ בו על Activate ואז לשלוח קוד שוב.</p>
-      <div class="row" style="margin-top:14px">
-        <button class="btn-ghost" id="fpCancel1" style="flex:1">ביטול</button>
-        <button class="btn-primary" id="fpSend" style="flex:1; width:auto; padding:12px">שלח קוד למייל</button>
-      </div>
-    </div>
-    <div id="fpStep2" style="display:none">
-      <p class="hint">הקוד נשלח למייל (בתוקף 15 דקות). לא רואים? בדוק בספאם.</p>
-      <input type="text" id="fpCode" placeholder="קוד בן 6 ספרות" inputmode="numeric" autocomplete="one-time-code" dir="ltr" style="text-align:center; letter-spacing:4px">
-      <input type="password" id="fpNewPw" placeholder="סיסמה חדשה (לפחות 4 תווים)" style="margin-top:8px">
-      <input type="password" id="fpNewPw2" placeholder="אימות סיסמה חדשה" style="margin-top:8px">
-      <div class="row" style="margin-top:14px">
-        <button class="btn-ghost" id="fpCancel2" style="flex:1">ביטול</button>
-        <button class="btn-primary" id="fpSet" style="flex:1; width:auto; padding:12px">עדכן סיסמה</button>
-      </div>
-    </div>
-    <div class="warn" id="fpErr" style="display:none"></div>
-  </div>
-</div>
+
 
 <script src="words.js"></script>
 <script>
 "use strict";
 const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1";
-const AKEY = "engQuizAdmin_v1", RKEY = "engQuizReset_v1";
 const $ = id => document.getElementById(id);
 
 /* ---------- data indexes: accept synonyms ---------- */
@@ -347,7 +285,6 @@ $("dirSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
 
 $("btnStart").onclick = () => {
   if(!poolSize()) return;
-  if(needSetup()){ $("setupModal").classList.add("show"); return; }
   $("startPw").value = ""; $("startErr").style.display = "none";
   $("startModal").classList.add("show"); $("startPw").focus();
 };
@@ -362,7 +299,6 @@ $("startOk").onclick = async () => {
   }
 };
 $("startPw").addEventListener("keydown", e => { if(e.key === "Enter") $("startOk").click(); });
-$("startForgot").onclick = () => { $("startModal").classList.remove("show"); openForgot(); };
 
 function beginQuiz(){
   const pool = WORDS.filter(w => selPages.has(w[0]));
@@ -613,45 +549,14 @@ function renderHistory(){
   });
 }
 
-/* ---------- admin account (password + recovery email) ---------- */
-function loadAdmin(){ try{ return JSON.parse(localStorage.getItem(AKEY)); }catch(e){ return null; } }
-function saveAdmin(a){ localStorage.setItem(AKEY, JSON.stringify(a)); }
-
-/* import admin config from a device-link (#cfg=...) */
-(function(){
-  const m = location.hash.match(/#cfg=([A-Za-z0-9%+/=_-]+)/);
-  if(!m) return;
-  try{
-    const cfg = JSON.parse(atob(decodeURIComponent(m[1])));
-    if(cfg && cfg.h && cfg.e){
-      saveAdmin({ pwHash: cfg.h, email: cfg.e });
-      const b = $("cancelBanner");
-      b.className = "ok";
-      b.textContent = "✅ ההגדרות יובאו מהמכשיר הראשי — הסיסמה והמייל הוגדרו במכשיר זה.";
-      b.style.display = "block";
-    }
-  }catch(e){}
-  history.replaceState(null, "", location.pathname + location.search);
-})();
-
-/* first-run setup */
-function needSetup(){ const a = loadAdmin(); return !(a && a.pwHash && a.email); }
-if(needSetup()) $("setupModal").classList.add("show");
-
-$("suSave").onclick = async () => {
-  const pw = $("suPw").value, pw2 = $("suPw2").value, email = $("suEmail").value.trim();
-  const err = $("suErr");
-  const fail = m => { err.textContent = m; err.style.display = "block"; };
-  if(pw.length < 4) return fail("הסיסמה חייבת להכיל לפחות 4 תווים");
-  if(pw !== pw2) return fail("הסיסמאות אינן זהות");
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("כתובת אימייל לא תקינה");
-  saveAdmin({ pwHash: await sha256(pw), email });
-  $("setupModal").classList.remove("show");
-};
+/* ---------- admin: fixed password (same on every device) + email ---------- */
+// password hash = SHA-256; email stored base64-encoded to avoid spam scrapers
+const ADMIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+const ADMIN_EMAIL_B64 = "Z2lvcmFAY29udGVjLmNvLmls";
+function loadAdmin(){ return { pwHash: ADMIN_HASH, email: atob(ADMIN_EMAIL_B64) }; }
 
 /* admin reset */
 $("btnReset").onclick = () => {
-  if(needSetup()){ $("setupModal").classList.add("show"); return; }
   $("pwInput").value = ""; $("pwErr").style.display = "none";
   $("pwModal").classList.add("show"); $("pwInput").focus();
 };
@@ -668,102 +573,6 @@ $("pwOk").onclick = async () => {
   }
 };
 $("pwInput").addEventListener("keydown", e => { if(e.key === "Enter") $("pwOk").click(); });
-
-/* ---------- device link: transfer admin config to another device ---------- */
-$("btnLink").onclick = () => {
-  if(needSetup()){ $("setupModal").classList.add("show"); return; }
-  $("lkPw").value = ""; $("lkErr").style.display = "none";
-  $("lkStep1").style.display = "block"; $("lkStep2").style.display = "none";
-  $("linkModal").classList.add("show"); $("lkPw").focus();
-};
-$("lkCancel").onclick = $("lkClose").onclick = () => $("linkModal").classList.remove("show");
-$("lkOk").onclick = async () => {
-  const admin = loadAdmin();
-  if(!(admin && await sha256($("lkPw").value) === admin.pwHash)){
-    $("lkErr").style.display = "block"; return;
-  }
-  const cfg = btoa(JSON.stringify({ h: admin.pwHash, e: admin.email }));
-  $("lkUrl").value = location.origin + location.pathname + "#cfg=" + encodeURIComponent(cfg);
-  $("lkStep1").style.display = "none"; $("lkStep2").style.display = "block";
-};
-$("lkPw").addEventListener("keydown", e => { if(e.key === "Enter") $("lkOk").click(); });
-$("lkCopy").onclick = async () => {
-  const url = $("lkUrl").value;
-  try{
-    await navigator.clipboard.writeText(url);
-    $("lkCopy").textContent = "✅ הועתק!";
-  }catch(e){
-    $("lkUrl").select(); document.execCommand("copy");
-    $("lkCopy").textContent = "✅ הועתק!";
-  }
-  setTimeout(() => { $("lkCopy").textContent = "📋 העתק קישור"; }, 2000);
-};
-
-/* ---------- forgot password: 6-digit code to recovery email ---------- */
-$("btnForgot").onclick = () => { $("pwModal").classList.remove("show"); openForgot(); };
-function openForgot(){
-  const admin = loadAdmin();
-  $("fpEmailShow").textContent = admin ? admin.email : "";
-  $("fpErr").style.display = "none";
-  $("fpStep1").style.display = "block"; $("fpStep2").style.display = "none";
-  $("fpCode").value = ""; $("fpNewPw").value = ""; $("fpNewPw2").value = "";
-  $("fpModal").classList.add("show");
-}
-$("fpCancel1").onclick = $("fpCancel2").onclick = () => $("fpModal").classList.remove("show");
-
-function fpFail(m){ const e = $("fpErr"); e.textContent = m; e.style.display = "block"; }
-
-$("fpSend").onclick = async () => {
-  const admin = loadAdmin();
-  if(!admin) return fpFail("לא הוגדר חשבון מנהל במכשיר זה");
-  $("fpErr").style.display = "none";
-  $("fpSend").disabled = true; $("fpSend").textContent = "שולח…";
-  // generate 6-digit code, keep only its hash locally (15-minute expiry)
-  const buf = new Uint32Array(1); crypto.getRandomValues(buf);
-  const code = String(100000 + (buf[0] % 900000));
-  localStorage.setItem(RKEY, JSON.stringify({ hash: await sha256(code), exp: Date.now() + 15*60*1000 }));
-  try{
-    const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(admin.email), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        _subject: "קוד איפוס סיסמה - מבחן מילים באנגלית",
-        _template: "box",
-        _captcha: "false",
-        "קוד האיפוס": code,
-        "הערה": "הקוד בתוקף ל-15 דקות. אם לא ביקשת איפוס - התעלם מהודעה זו."
-      })
-    });
-    const data = await resp.json().catch(() => ({}));
-    if(resp.ok && String(data.success) === "true"){
-      $("fpStep1").style.display = "none"; $("fpStep2").style.display = "block";
-      $("fpCode").focus();
-    } else {
-      fpFail(data.message || "השליחה נכשלה — נסה שוב");
-    }
-  }catch(e){
-    fpFail("אין חיבור לאינטרנט או שהשירות אינו זמין");
-  }
-  $("fpSend").disabled = false; $("fpSend").textContent = "שלח קוד למייל";
-};
-
-$("fpSet").onclick = async () => {
-  $("fpErr").style.display = "none";
-  let rec = null; try{ rec = JSON.parse(localStorage.getItem(RKEY)); }catch(e){}
-  if(!rec) return fpFail("לא נשלח קוד — חזור ושלח קוד");
-  if(Date.now() > rec.exp) return fpFail("הקוד פג תוקף — שלח קוד חדש");
-  const codeHash = await sha256($("fpCode").value.trim());
-  if(codeHash !== rec.hash) return fpFail("קוד שגוי");
-  const pw = $("fpNewPw").value, pw2 = $("fpNewPw2").value;
-  if(pw.length < 4) return fpFail("הסיסמה חייבת להכיל לפחות 4 תווים");
-  if(pw !== pw2) return fpFail("הסיסמאות אינן זהות");
-  const admin = loadAdmin();
-  admin.pwHash = await sha256(pw);
-  saveAdmin(admin);
-  localStorage.removeItem(RKEY);
-  $("fpModal").classList.remove("show");
-  alert("✅ הסיסמה עודכנה בהצלחה");
-};
 
 async function sha256(str){
   if(crypto && crypto.subtle){
