@@ -117,6 +117,10 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 .modal-bg.show{display:flex;}
 .modal{background:#fff; border-radius:16px; padding:20px; width:100%; max-width:360px;}
 .warn{color:var(--red); font-size:.85rem; margin-top:8px;}
+.btn-yes-red{background:var(--red); color:#fff; font-weight:700;}
+.btn-no-green{background:var(--green); color:#fff; font-weight:700;}
+#guardMsg{display:none; text-align:center; color:var(--red); font-weight:600; font-size:.85rem; margin-top:8px;}
+#heRevealBox{display:none; text-align:center; font-size:1.25rem; font-weight:700; color:var(--accent); background:#eff6ff; border:1px solid #dbeafe; border-radius:12px; padding:10px; margin:8px 0;}
 @media (max-width:400px){ .qword{font-size:1.8rem;} }
 </style>
 </head>
@@ -219,7 +223,10 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       </div>
       <button class="btn-ghost" id="btnReveal" style="display:none; margin:10px auto 4px">👁 הצג מילה</button>
       <input type="text" id="spellInput" dir="ltr" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="display:none; margin-bottom:10px; font-size:1.3rem; text-align:center; padding:14px" placeholder="ספֶּלינג — איית את המילה באנגלית">
-      <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn-ghost" id="btnRevealHe" style="display:none; margin:0 auto 8px">👁 הצג מילה בעברית</button>
+    <div id="heRevealBox"></div>
+    <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div id="guardMsg">🚫 אפשר רק להקליד את התשובה, אות אחרי אות</div>
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
       <button class="skip-link" id="btnSkip">דלג (ייחשב כטעות)</button>
     </div>
@@ -262,8 +269,8 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
     <h2>לבטל את המבחן?</h2>
     <p class="hint">המבחן לא יישמר ולא יקבל ציון.</p>
     <div class="row" style="margin-top:14px">
-      <button class="btn-ghost" id="quitNo" style="flex:1">המשך מבחן</button>
-      <button class="btn-danger" id="quitYes" style="flex:1">בטל מבחן</button>
+      <button class="btn-no-green" id="quitNo" style="flex:1">לא, המשך במבחן</button>
+      <button class="btn-yes-red" id="quitYes" style="flex:1">כן, צא מהמבחן</button>
     </div>
   </div>
 </div>
@@ -586,12 +593,26 @@ $("btnReveal").onclick = () => {
   $("btnReveal").textContent = "👁 המילה הוצגה (יסומן בתוצאה)";
 };
 
+let heRevealedCurrent = false;
+$("btnRevealHe").onclick = () => {
+  if(!quiz || quiz.dir !== "en2he") return;
+  const q = quiz.words[quiz.idx];
+  /* מסומן רק אם התשובה בעברית עדיין לא הייתה נכונה ברגע הלחיצה */
+  if(!isCorrect(q, $("answerInput").value.trim())) heRevealedCurrent = true;
+  const box = $("heRevealBox");
+  box.textContent = q[2];
+  box.style.display = "block";
+  $("btnRevealHe").disabled = true;
+  $("btnRevealHe").textContent = heRevealedCurrent ? "👁 הפירוש הוצג (יסומן בתוצאה)" : "👁 הפירוש הוצג ✓";
+};
+
 function renderQuestion(){
   const q = quiz.words[quiz.idx];
   const total = quiz.words.length;
   const listen = quiz.mode === "listen";
   revealedCurrent = false;
   heardCurrent = false;
+  heRevealedCurrent = false;
   $("qProgress").textContent = `מילה ${quiz.idx+1} מתוך ${total}`;
   $("qDirLabel").textContent = (listen ? "האזן ו" : "") +
     (isDual() ? "איית באנגלית + כתוב את הפירוש בעברית" : quiz.dir === "en2he" ? "כתוב את הפירוש בעברית" : "כתוב את המילה באנגלית");
@@ -618,6 +639,12 @@ function renderQuestion(){
   rb.style.display = listen ? "block" : "none";
   rb.disabled = false;
   rb.textContent = "👁 הצג מילה";
+  const rh = $("btnRevealHe");
+  rh.style.display = listen ? "block" : "none";
+  rh.disabled = false;
+  rh.textContent = "👁 הצג מילה בעברית";
+  $("heRevealBox").style.display = "none";
+  $("heRevealBox").textContent = "";
   const sInp = $("spellInput");
   sInp.style.display = isDual() ? "block" : "none";
   sInp.value = "";
@@ -671,7 +698,7 @@ function submitAnswer(skip){
   const meaningOk = skip === true ? false : isCorrect(q, given);
   const spellOk = dual ? (skip !== true && normEn(spell) === normEn(q[1])) : null;
   const ok = meaningOk && (dual ? spellOk : true);
-  quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent, heard: heardCurrent });
+  quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent, heard: heardCurrent, heRevealed: heRevealedCurrent });
   quiz.idx++;
   if(quiz.idx < quiz.words.length){ renderQuestion(); }
   else { finishQuiz(); }
@@ -692,10 +719,10 @@ function finishQuiz(){
     id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
     num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, mode: quiz.mode, pages: quiz.pages,
     total, correct, score,
-    mistakes: quiz.answers.filter(a => !a.ok || a.revealed || a.heard).map(a => ({
+    mistakes: quiz.answers.filter(a => !a.ok || a.revealed || a.heard || a.heRevealed).map(a => ({
       en: a.q[1], he: a.q[2], given: a.given,
       spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
-      ok: a.ok, revealed: !!a.revealed, heard: !!a.heard
+      ok: a.ok, revealed: !!a.revealed, heard: !!a.heard, heRevealed: !!a.heRevealed
     }))
   };
   const h = loadHist(); h.push(rec); saveHist(h);
@@ -753,7 +780,8 @@ function mistakesTable(mist, d){
   if(!mist.length) return `<div class="empty">🎉 אין טעויות — כל הכבוד!</div>`;
   let rows = mist.map(m => {
     const revTag = (m.revealed ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">👁 הוצגה</div>` : "") +
-                   (m.heard ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">🔊 הושמעה באנגלית</div>` : "");
+                   (m.heard ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">🔊 הושמעה באנגלית</div>` : "") +
+                   (m.heRevealed ? `<div style="color:#d97706; font-size:.78rem; font-weight:700">👁 הפירוש הוצג בעברית</div>` : "");
     let given;
     if(m.spell !== null && m.spell !== undefined){
       // listening test with spelling: show both parts, wrong part in red
@@ -855,6 +883,26 @@ function showScreen(id){
 // leaving mid-quiz = nothing saved (state is in memory only)
 window.addEventListener("beforeunload", e => { if(quiz){ e.preventDefault(); e.returnValue = ""; } });
 
+
+/* חסימת הכתבה קולית והדבקה בזמן מבחן — הקלדה בלבד */
+(function(){
+  const blocked = ["insertFromPaste","insertFromDrop","insertFromDictation"];
+  let gt = null;
+  function flash(){
+    const g = $("guardMsg"); g.style.display = "block";
+    clearTimeout(gt); gt = setTimeout(() => { g.style.display = "none"; }, 1600);
+  }
+  for(const id of ["answerInput","spellInput"]){
+    const inp = $(id);
+    inp.addEventListener("beforeinput", e => {
+      if(!quiz || inp.readOnly) return;
+      if(blocked.includes(e.inputType) || (e.data && e.data.length > 1 && e.inputType !== "insertCompositionText")){
+        e.preventDefault(); flash();
+      }
+    });
+    inp.addEventListener("paste", e => { if(quiz && !inp.readOnly){ e.preventDefault(); flash(); } });
+  }
+})();
 renderHistory();
 </script>
 </body>
