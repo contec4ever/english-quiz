@@ -228,7 +228,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
     <input type="text" id="answerInput" autocomplete="off" autocorrect="off" spellcheck="false">
     <div id="guardMsg">🚫 אפשר רק להקליד את התשובה, אות אחרי אות</div>
       <button class="btn-primary" id="btnNext" style="margin-top:14px" disabled>המשך ⬅</button>
-      <button class="skip-link" id="btnSkip">דלג (ייחשב כטעות)</button>
+      <button class="skip-link" id="btnSkip">דלג — מה שלא מולא ייחשב טעות</button>
     </div>
     <button class="skip-link" id="btnQuit" style="margin-top:10px">❌ ביטול מבחן (לא יישמר)</button>
   </div>
@@ -693,10 +693,10 @@ function isCorrect(q, given){
 function submitAnswer(skip){
   const q = quiz.words[quiz.idx];
   const dual = isDual();
-  const given = skip === true ? "" : $("answerInput").value.trim();
-  const spell = dual ? (skip === true ? "" : $("spellInput").value.trim()) : null;
-  const meaningOk = skip === true ? false : isCorrect(q, given);
-  const spellOk = dual ? (skip !== true && normEn(spell) === normEn(q[1])) : null;
+  const given = $("answerInput").value.trim();
+  const spell = dual ? $("spellInput").value.trim() : null;
+  const meaningOk = isCorrect(q, given);
+  const spellOk = dual ? (!!spell && normEn(spell) === normEn(q[1])) : null;
   const ok = meaningOk && (dual ? spellOk : true);
   quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent, heard: heardCurrent, heRevealed: heRevealedCurrent });
   quiz.idx++;
