@@ -724,7 +724,7 @@ $("btnNext").onclick = submitAnswer;
 $("btnSkip").onclick = () => submitAnswer(true);
 $("btnQuit").onclick = () => $("quitModal").classList.add("show");
 $("quitNo").onclick = () => { $("quitModal").classList.remove("show"); $("answerInput").focus(); };
-$("quitYes").onclick = () => { $("quitModal").classList.remove("show"); cancelQuiz("המבחן בוטל — לא נשמר."); };
+$("quitYes").onclick = () => { $("quitModal").classList.remove("show"); cancelQuiz("המבחן בוטל על ידי הלומד באמצע."); };
 
 function isCorrect(q, given){
   if(quiz.dir === "en2he"){
