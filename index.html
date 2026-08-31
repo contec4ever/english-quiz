@@ -119,6 +119,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 .warn{color:var(--red); font-size:.85rem; margin-top:8px;}
 .btn-yes-red{background:var(--red); color:#fff; font-weight:700;}
 .btn-no-green{background:var(--green); color:#fff; font-weight:700;}
+.warnb{color:var(--red); font-weight:700;}
 #guardMsg{display:none; text-align:center; color:var(--red); font-weight:600; font-size:.85rem; margin-top:8px;}
 #heRevealBox{display:none; text-align:center; font-size:1.25rem; font-weight:700; color:var(--accent); background:#eff6ff; border:1px solid #dbeafe; border-radius:12px; padding:10px; margin:8px 0;}
 @media (max-width:400px){ .qword{font-size:1.8rem;} }
@@ -194,7 +195,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
       <div id="histList"></div>
     </div>
 
-    <div class="footer-note">מבחן שלא הסתיים אינו נשמר · תוצאות נשמרות במכשיר זה בלבד<br>
+    <div class="footer-note">כל תשובה נשמרת מיד — מבחן שהופסק נשמר עם התוצאות עד לאותו רגע · תוצאות נשמרות במכשיר זה בלבד<br>
       <a href="cheers.html" style="color:var(--muted)">🔊 סימולטור משפטי העידוד</a></div>
   </div>
 
@@ -267,7 +268,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 <div class="modal-bg" id="quitModal">
   <div class="modal">
     <h2>לבטל את המבחן?</h2>
-    <p class="hint">המבחן לא יישמר ולא יקבל ציון.</p>
+    <p class="hint">המבחן יישמר כ״הופסק״ עם התשובות שנענו עד כה, ולא ניתן יהיה להמשיך אותו.</p>
     <div class="row" style="margin-top:14px">
       <button class="btn-no-green" id="quitNo" style="flex:1">לא, המשך במבחן</button>
       <button class="btn-yes-red" id="quitYes" style="flex:1">כן, צא מהמבחן</button>
@@ -283,7 +284,7 @@ td.given{color:var(--red);} td.corr{color:var(--green); font-weight:600;}
 <script src="celebrate.js"></script>
 <script>
 "use strict";
-const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1";
+const HKEY = "engQuizHistory_v1", CKEY = "engQuizCounter_v1", AKEY = "engQuizActive_v1";
 const $ = id => document.getElementById(id);
 
 /* ---------- data indexes: accept synonyms ---------- */
@@ -441,6 +442,56 @@ function shuffle(arr){
   }
   return arr;
 }
+/* ---------- continuous save: every answer is persisted immediately; an interrupted test is kept as "interrupted" ---------- */
+function makeTestId(num, d){
+  return `T${String(num).padStart(3,"0")}-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}`;
+}
+function allocateTestNumber(qz){
+  const num = (parseInt(localStorage.getItem(CKEY),10) || 0) + 1;
+  localStorage.setItem(CKEY, String(num));
+  const now = new Date();
+  qz.num = num; qz.id = makeTestId(num, now); qz.startedAt = now.toISOString();
+}
+function saveActive(){
+  if(!quiz) return;
+  try{ localStorage.setItem(AKEY, JSON.stringify(quiz)); }catch(e){}
+}
+function clearActive(){ localStorage.removeItem(AKEY); }
+function buildRecord(qz, status, reason){
+  const answered = qz.answers.length;
+  const correct = qz.answers.filter(a => a.ok).length;
+  const now = new Date();
+  return {
+    id: qz.id, num: qz.num, ts: now.toISOString(), startedAt: qz.startedAt,
+    dir: qz.dir, diff: qz.diff, mode: qz.mode, pages: qz.pages,
+    status, reason: reason || "",
+    total: qz.words.length, answered, correct,
+    score: answered ? Math.round(100*correct/answered) : 0,
+    mistakes: qz.answers.filter(a => !a.ok || a.revealed || a.heard || a.heRevealed).map(a => ({
+      en: a.q[1], he: a.q[2], given: a.given,
+      spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
+      ok: a.ok, revealed: !!a.revealed, heard: !!a.heard, heRevealed: !!a.heRevealed
+    }))
+  };
+}
+function saveInterrupted(qz, reason){
+  if(!qz || !qz.id) return null;
+  const rec = buildRecord(qz, "interrupted", reason);
+  const h = loadHist();
+  if(!h.some(r => r.id === rec.id)){ h.push(rec); saveHist(h); }
+  clearActive();
+  return rec;
+}
+// a test that was still open when the page was closed / crashed / refreshed -> saved as interrupted
+(function recoverActive(){
+  try{
+    const s = localStorage.getItem(AKEY);
+    if(!s) return;
+    const qz = JSON.parse(s);
+    saveInterrupted(qz, "האפליקציה נסגרה או רועננה באמצע המבחן");
+  }catch(e){ localStorage.removeItem(AKEY); }
+})();
+
 // difficulty priority: which levels fill the test first
 const DIFF_ORDER = { mix: null, easy: [1,2,3], med: [2,1,3], hard: [3,2,1] };
 
@@ -466,6 +517,8 @@ function beginQuiz(){
   }
   shuffle(picked); // ask the selected words in random order
   quiz = { words: picked, idx: 0, answers: [], dir, diff, mode: mode === "listen" && dir === "en2he" && "speechSynthesis" in window ? "listen" : "read", pages: [...selPages].sort((a,b)=>a-b) };
+  allocateTestNumber(quiz);
+  saveActive();
   $("cancelBanner").style.display = "none";
   enterFullscreen();
   showScreen("scrQuiz");
@@ -496,12 +549,13 @@ function exitFullscreen(){
   }catch(e){}
 }
 function cancelQuiz(msg){
+  const saved = saveInterrupted(quiz, msg);
   quiz = null;
   if("speechSynthesis" in window) speechSynthesis.cancel();
   exitFullscreen();
   const b = $("cancelBanner");
   b.className = "";
-  b.textContent = "⚠️ " + msg;
+  b.textContent = "⚠️ " + msg + (saved ? ` · נשמר כמבחן ${saved.num} (הופסק) — נענו ${saved.answered} מתוך ${saved.total}` : "");
   b.style.display = "block";
   showScreen("scrSetup");
   renderHistory();
@@ -700,6 +754,7 @@ function submitAnswer(skip){
   const ok = meaningOk && (dual ? spellOk : true);
   quiz.answers.push({ q, given, spell, meaningOk, spellOk, ok, revealed: revealedCurrent, heard: heardCurrent, heRevealed: heRevealedCurrent });
   quiz.idx++;
+  saveActive();
   if(quiz.idx < quiz.words.length){ renderQuestion(); }
   else { finishQuiz(); }
 }
@@ -709,23 +764,9 @@ function loadHist(){ try{ return JSON.parse(localStorage.getItem(HKEY)) || []; }
 function saveHist(h){ localStorage.setItem(HKEY, JSON.stringify(h)); }
 
 function finishQuiz(){
-  const total = quiz.answers.length;
-  const correct = quiz.answers.filter(a => a.ok).length;
-  const score = Math.round(100*correct/total);
-  const num = (parseInt(localStorage.getItem(CKEY),10) || 0) + 1;
-  localStorage.setItem(CKEY, String(num));
-  const now = new Date();
-  const rec = {
-    id: `T${String(num).padStart(3,"0")}-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
-    num, ts: now.toISOString(), dir: quiz.dir, diff: quiz.diff, mode: quiz.mode, pages: quiz.pages,
-    total, correct, score,
-    mistakes: quiz.answers.filter(a => !a.ok || a.revealed || a.heard || a.heRevealed).map(a => ({
-      en: a.q[1], he: a.q[2], given: a.given,
-      spell: a.spell, spellOk: a.spellOk, meaningOk: a.meaningOk,
-      ok: a.ok, revealed: !!a.revealed, heard: !!a.heard, heRevealed: !!a.heRevealed
-    }))
-  };
+  const rec = buildRecord(quiz, "completed", "");
   const h = loadHist(); h.push(rec); saveHist(h);
+  clearActive();
   renderResult(rec);
   quiz = null;
   if("speechSynthesis" in window) speechSynthesis.cancel();
@@ -827,12 +868,12 @@ function renderHistory(){
     <div class="hist-item" data-i="${i}">
       <div class="hist-top">
         <div>
-          <div><b>מבחן ${r.num}</b> <span class="hist-meta">· ${r.id}</span></div>
-          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)}${r.diff ? " · " + diffLabel(r.diff) : ""}${r.mode === "listen" ? " · 🔊 שמיעה" : ""} · ${r.total} מילים · עמודים ${r.pages.join(", ")}</div>
+          <div><b>מבחן ${r.num}</b>${r.status === "interrupted" ? " <span class=warnb>⚠️ הופסק</span>" : ""} <span class="hist-meta">· ${r.id}</span></div>
+          <div class="hist-meta">${fmtDate(r.ts)} · ${dirLabel(r.dir)}${r.diff ? " · " + diffLabel(r.diff) : ""}${r.mode === "listen" ? " · 🔊 שמיעה" : ""} · ${r.status === "interrupted" ? "נענו " + r.answered + " מתוך " + r.total : r.total + " מילים"} · עמודים ${r.pages.join(", ")}</div>${r.status === "interrupted" && r.reason ? "<div class=hist-meta style=color:var(--red)>" + esc(r.reason) + "</div>" : ""}
         </div>
-        <div class="hist-score ${scoreClass(r.score)}">${r.score}</div>
+        <div class="hist-score ${scoreClass(r.score)}">${r.status === "interrupted" && !r.answered ? "—" : r.score}</div>
       </div>
-      <div class="hist-detail">${mistakesTable(r.mistakes, r.dir)}</div>
+      <div class="hist-detail">${r.status === "interrupted" && !r.answered ? "<div class=empty>לא נענתה אף מילה לפני ההפסקה</div>" : mistakesTable(r.mistakes, r.dir)}</div>
     </div>`).join("");
   list.querySelectorAll(".hist-item").forEach(el => {
     el.querySelector(".hist-top").onclick = () => el.classList.toggle("open");
@@ -854,7 +895,7 @@ $("pwOk").onclick = async () => {
   const admin = loadAdmin();
   const hash = await sha256($("pwInput").value);
   if(admin && hash === admin.pwHash){
-    localStorage.removeItem(HKEY); localStorage.removeItem(CKEY);
+    localStorage.removeItem(HKEY); localStorage.removeItem(CKEY); localStorage.removeItem(AKEY);
     $("pwModal").classList.remove("show");
     renderHistory();
   } else {
