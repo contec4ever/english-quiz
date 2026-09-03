@@ -927,7 +927,7 @@ window.addEventListener("beforeunload", e => { if(quiz){ e.preventDefault(); e.r
 
 /* חסימת הכתבה קולית והדבקה בזמן מבחן — הקלדה בלבד */
 (function(){
-  const blocked = ["insertFromPaste","insertFromDrop","insertFromDictation"];
+  const blocked = ["insertFromPaste","insertFromDrop","insertFromDictation","insertReplacementText"];
   let gt = null;
   function flash(){
     const g = $("guardMsg"); g.style.display = "block";
@@ -937,7 +937,8 @@ window.addEventListener("beforeunload", e => { if(quiz){ e.preventDefault(); e.r
     const inp = $(id);
     inp.addEventListener("beforeinput", e => {
       if(!quiz || inp.readOnly) return;
-      if(blocked.includes(e.inputType) || (e.data && e.data.length > 1 && e.inputType !== "insertCompositionText")){
+      const td = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/plain");
+      if(blocked.includes(e.inputType) || (e.data && e.data.length > 1 && e.inputType !== "insertCompositionText") || (td && td.length > 1)){
         e.preventDefault(); flash();
       }
     });
